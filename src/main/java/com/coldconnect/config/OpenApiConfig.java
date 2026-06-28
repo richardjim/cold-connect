@@ -9,15 +9,15 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration
 @OpenAPIDefinition(
-    info = @Info(
-        title = "Cold Connect API",
-        version = "1.0",
-        description = "Truewatt Cold Connect — Food and Package Delivery Platform"
-    ),
-    servers = {
-        @Server(url = "http://localhost:8080", description = "Local"),
-        @Server(url = "https://your-app.onrender.com", description = "Render Production")
-    }
+        info = @Info(
+                title = "Cold Connect API",
+                version = "1.0",
+                description = "Truewatt Cold Connect — Food and Package Delivery Platform"
+        ),
+        servers = {
+                @Server(url = "https://cold-connect.onrender.com", description = "Production"),
+                @Server(url = "http://localhost:8080", description = "Local")
+        }
 )
 @SecurityScheme(
     name = "bearerAuth",
