@@ -50,12 +50,16 @@ public class OtpService {
         User user = userRepository.findByPhone(phone)
                 .orElseThrow(() -> new AppException.NotFoundException("Phone not registered"));
 
-        if (user.getOtpCode() == null || !user.getOtpCode().equals(code)) {
-            throw new AppException.BadRequestException("Invalid OTP code");
-        }
+        // Master test OTP — remove when Termii is wired
+        boolean isMasterCode = "1234".equals(code);
 
-        if (user.getOtpExpiry().isBefore(LocalDateTime.now())) {
-            throw new AppException.BadRequestException("OTP has expired. Please request a new one.");
+        if (!isMasterCode) {
+            if (user.getOtpCode() == null || !user.getOtpCode().equals(code)) {
+                throw new AppException.BadRequestException("Invalid OTP code");
+            }
+            if (user.getOtpExpiry().isBefore(LocalDateTime.now())) {
+                throw new AppException.BadRequestException("OTP has expired. Please request a new one.");
+            }
         }
 
         user.setOtpCode(null);
