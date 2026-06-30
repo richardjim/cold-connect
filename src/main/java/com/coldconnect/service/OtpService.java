@@ -25,14 +25,9 @@ public class OtpService {
     public String requestOtp(String phone, String purpose, String language) {
         String otp = String.format("%06d", new Random().nextInt(999999));
 
-        User user = userRepository.findByPhone(phone).orElseGet(() -> {
-            User u = new User();
-            u.setPhone(phone);
-            u.setFullName("");
-            u.setRole(Role.CUSTOMER);
-            u.setEnabled(true);
-            return u;
-        });
+        User user = userRepository.findByPhone(phone)
+                .orElseThrow(() -> new AppException.NotFoundException(
+                        "Phone not registered. Use POST /v1/auth/signup first."));
 
         user.setOtpCode(otp);
         user.setOtpExpiry(LocalDateTime.now().plusMinutes(10));
