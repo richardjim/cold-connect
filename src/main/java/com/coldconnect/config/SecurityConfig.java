@@ -42,6 +42,9 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/v1/auth/**").permitAll()
+                        .requestMatchers("/v1/hubs/**").permitAll()
+                        .requestMatchers("/v1/regions/**").permitAll()
+                        .requestMatchers("/v1/commodities/**").permitAll()
                         .requestMatchers(SWAGGER_PATHS).permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/operator/**").hasAnyRole("ADMIN", "OPERATOR")
