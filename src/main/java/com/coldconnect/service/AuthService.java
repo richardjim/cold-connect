@@ -12,7 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.UUID;
+import java.util.Random;
 
 @Service
 public class AuthService {
@@ -41,19 +41,43 @@ public class AuthService {
         if (userRepository.existsByEmail(email)) {
             throw new AppException.ConflictException("Email is already registered");
         }
-        String token = UUID.randomUUID().toString();
+        // 6-digit code instead of UUID token
+        String code = String.format("%06d", new Random().nextInt(999999));
+
         User user = new User();
         user.setEmail(email);
         user.setPassword(passwordEncoder.encode(password));
         user.setFullName(fullName);
         user.setRole(com.coldconnect.enums.Role.ADMIN);
         user.setEmailVerified(false);
-        user.setVerificationToken(token);
-        user.setVerificationTokenExpiry(LocalDateTime.now().plusHours(24));
+        user.setVerificationToken(code);
+        user.setVerificationTokenExpiry(LocalDateTime.now().plusMinutes(30));
         user.setEnabled(true);
         userRepository.save(user);
-        emailService.sendVerificationEmail(email, token);
-        return "Registration successful. Check your email.";
+        emailService.sendVerificationEmail(email, code);
+        return "Registration successful. Check your email for a 6-digit verification code.";
+    }
+
+    @Transactional
+    public String verifyEmail(String email, String code) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new AppException.NotFoundException("Email not found"));
+
+        if (user.isEmailVerified()) {
+            return "Email already verified. You can log in.";
+        }
+        if (!code.equals(user.getVerificationToken())) {
+            throw new AppException.BadRequestException("Invalid verification code");
+        }
+        if (user.getVerificationTokenExpiry().isBefore(LocalDateTime.now())) {
+            throw new AppException.BadRequestException("Code has expired. Please register again.");
+        }
+
+        user.setEmailVerified(true);
+        user.setVerificationToken(null);
+        user.setVerificationTokenExpiry(null);
+        userRepository.save(user);
+        return "Email verified successfully. You can now log in.";
     }
 
     @Transactional
@@ -68,20 +92,6 @@ public class AuthService {
         user.setRefreshToken(passwordEncoder.encode(refreshToken));
         user.setRefreshTokenExpiry(LocalDateTime.now().plusDays(7));
         return userRepository.save(user);
-    }
-
-    @Transactional
-    public String verifyEmail(String token) {
-        User user = userRepository.findByVerificationToken(token)
-                .orElseThrow(() -> new AppException.BadRequestException("Invalid verification link"));
-        if (user.getVerificationTokenExpiry().isBefore(LocalDateTime.now())) {
-            throw new AppException.BadRequestException("Link expired. Please register again.");
-        }
-        user.setEmailVerified(true);
-        user.setVerificationToken(null);
-        user.setVerificationTokenExpiry(null);
-        userRepository.save(user);
-        return "Email verified. You can now log in.";
     }
 
     @Transactional
@@ -104,30 +114,34 @@ public class AuthService {
     @Transactional
     public String forgotPassword(String email) {
         userRepository.findByEmail(email).ifPresent(user -> {
-            String rawToken = UUID.randomUUID().toString();
-            user.setPasswordResetToken(passwordEncoder.encode(rawToken));
+            String code = String.format("%06d", new Random().nextInt(999999));
+            user.setPasswordResetToken(code);
             user.setPasswordResetTokenExpiry(LocalDateTime.now().plusMinutes(resetExpiryMinutes));
             userRepository.save(user);
-            emailService.sendPasswordResetEmail(email, rawToken);
+            emailService.sendPasswordResetEmail(email, code);
         });
-        return "If that email is registered, a reset link has been sent.";
+        return "If that email is registered, a reset code has been sent.";
     }
 
     @Transactional
-    public String resetPassword(String token, String newPassword) {
-        User user = userRepository.findAll().stream()
-                .filter(u -> u.getPasswordResetToken() != null
-                        && passwordEncoder.matches(token, u.getPasswordResetToken())
-                        && u.getPasswordResetTokenExpiry().isAfter(LocalDateTime.now()))
-                .findFirst()
-                .orElseThrow(() -> new AppException.BadRequestException("Link invalid or expired."));
+    public String resetPassword(String email, String code, String newPassword) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new AppException.NotFoundException("Email not found"));
+
+        if (user.getPasswordResetToken() == null || !user.getPasswordResetToken().equals(code)) {
+            throw new AppException.BadRequestException("Invalid reset code");
+        }
+        if (user.getPasswordResetTokenExpiry().isBefore(LocalDateTime.now())) {
+            throw new AppException.BadRequestException("Reset code has expired. Request a new one.");
+        }
+
         user.setPassword(passwordEncoder.encode(newPassword));
         user.setPasswordResetToken(null);
         user.setPasswordResetTokenExpiry(null);
         user.setRefreshToken(null);
         user.setRefreshTokenExpiry(null);
         userRepository.save(user);
-        return "Password reset successful.";
+        return "Password reset successful. Please log in.";
     }
 
     @Transactional

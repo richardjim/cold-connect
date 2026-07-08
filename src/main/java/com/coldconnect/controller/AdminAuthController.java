@@ -47,8 +47,6 @@ public class AdminAuthController extends BaseController {
 
     public record ForgotRequest(@NotBlank @Email String email) {}
 
-    public record ResetRequest(@NotBlank String token, @NotBlank @Size(min = 8) String newPassword) {}
-
     @Operation(summary = "Register admin account")
     @PostMapping("/register")
     public ResponseEntity<Map<String, String>> register(@Valid @RequestBody RegisterRequest req,
@@ -74,11 +72,13 @@ public class AdminAuthController extends BaseController {
                 "email", user.getEmail()
         ));
     }
+    public record VerifyEmailRequest(@NotBlank String email, @NotBlank String code) {}
 
-    @Operation(summary = "Verify email from link")
-    @GetMapping("/verify-email")
-    public ResponseEntity<Map<String, String>> verifyEmail(@RequestParam String token) {
-        return ResponseEntity.ok(Map.of("message", authService.verifyEmail(token)));
+    @Operation(summary = "Verify email with 6-digit code")
+    @PostMapping("/verify-email")
+    public ResponseEntity<Map<String, String>> verifyEmail(
+            @Valid @RequestBody VerifyEmailRequest req) {
+        return ResponseEntity.ok(Map.of("message", authService.verifyEmail(req.email(), req.code())));
     }
 
     @Operation(summary = "Refresh access token")
@@ -102,12 +102,19 @@ public class AdminAuthController extends BaseController {
         return ResponseEntity.ok(Map.of("message", authService.forgotPassword(req.email())));
     }
 
-    @Operation(summary = "Reset password with token")
+    public record ResetRequest(
+            @NotBlank String email,
+            @NotBlank String code,
+            @NotBlank @Size(min = 8) String newPassword
+    ) {}
+
+    @Operation(summary = "Reset password with 6-digit code")
     @PostMapping("/reset-password")
-    public ResponseEntity<Map<String, String>> resetPassword(@Valid @RequestBody ResetRequest req,
-                                                              HttpServletRequest http) {
+    public ResponseEntity<Map<String, String>> resetPassword(
+            @Valid @RequestBody ResetRequest req, HttpServletRequest http) {
         rateLimitService.checkAuthLimit(getIp(http));
-        return ResponseEntity.ok(Map.of("message", authService.resetPassword(req.token(), req.newPassword())));
+        return ResponseEntity.ok(Map.of("message",
+                authService.resetPassword(req.email(), req.code(), req.newPassword())));
     }
 
     @Operation(summary = "Logout")
