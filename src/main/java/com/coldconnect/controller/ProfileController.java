@@ -1,73 +1,100 @@
 package com.coldconnect.controller;
 
 import com.coldconnect.entity.User;
+import com.coldconnect.exception.AppException;
 import com.coldconnect.repository.UserRepository;
+import com.coldconnect.service.ProfileService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import org.springframework.http.ResponseEntity;
-import com.coldconnect.exception.AppException;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Map;
-
 @RestController
-@RequestMapping("/v1/me")
+@RequestMapping("/v1/profile")
 @SecurityRequirement(name = "bearerAuth")
 @Tag(name = "Profile", description = "Customer profile and preferences")
 public class ProfileController extends BaseController {
 
-    public ProfileController(UserRepository userRepository) {
+    private final ProfileService profileService;
+
+    public ProfileController(UserRepository userRepository, ProfileService profileService) {
         super(userRepository);
+        this.profileService = profileService;
     }
+
+    @Schema(description = "Update profile request — all fields optional")
+    public record UpdateProfileRequest(
+
+            @Schema(example = "John Farmer", description = "Letters only, 2-100 characters")
+            @Size(min = 2, max = 100, message = "Full name must be between 2 and 100 characters")
+            @Pattern(regexp = "^[a-zA-Z\\s'-]+$", message = "Name must contain letters only")
+            String fullName,
+
+            @Schema(example = "en", description = "Supported: en, ha, yo, ig, pcm")
+            @Pattern(regexp = "^(en|ha|yo|ig|pcm)$", message = "Language must be one of: en, ha, yo, ig, pcm")
+            String language,
+
+            @Schema(example = "accepted", description = "accepted or declined")
+            @Pattern(regexp = "^(accepted|declined)$", message = "Consent must be: accepted or declined")
+            String consentStatus,
+
+            @Schema(example = "HUB-JOS-01", description = "Preferred cold hub ID")
+            String preferredHubId
+    ) {}
+
+    @Schema(description = "Profile response")
+    public record ProfileResponse(
+            Long id,
+            String phone,
+            String email,
+            String fullName,
+            String role,
+            String language,
+            String consentStatus,
+            String preferredHubId,
+            String kycLevel
+    ) {}
 
     @Operation(summary = "Get my profile")
     @GetMapping
-    public ResponseEntity<User> getProfile(@AuthenticationPrincipal UserDetails userDetails) {
-        return ResponseEntity.ok(resolveUser(userDetails));
+    public ResponseEntity<ProfileResponse> getProfile(
+            @AuthenticationPrincipal UserDetails userDetails) {
+        User user = resolveUser(userDetails);
+        return ResponseEntity.ok(toResponse(user));
     }
 
-    @Operation(summary = "Update profile, language, consents")
+    @Operation(
+            summary = "Update my profile",
+            description = "All fields optional. Only provided fields are updated."
+    )
     @PatchMapping
-    public ResponseEntity<User> updateProfile(
+    public ResponseEntity<ProfileResponse> updateProfile(
             @AuthenticationPrincipal UserDetails userDetails,
-            @RequestBody Map<String, String> updates) {
-
+            @Valid @RequestBody UpdateProfileRequest req) {
         User user = resolveUser(userDetails);
+        User updated = profileService.updateProfile(user.getId(), req.fullName(),
+                req.language(), req.consentStatus(), req.preferredHubId());
+        return ResponseEntity.ok(toResponse(updated));
+    }
 
-        if (updates.containsKey("fullName")) {
-            String name = updates.get("fullName");
-            if (name == null || name.isBlank() || name.length() < 2) {
-                throw new AppException.BadRequestException("Full name must be at least 2 characters");
-            }
-            if (!name.matches("^[a-zA-Z\\s'-]+$")) {
-                throw new AppException.BadRequestException("Name must contain letters only");
-            }
-            user.setFullName(name);
-        }
-
-        if (updates.containsKey("language")) {
-            String lang = updates.get("language");
-            if (!lang.matches("^(en|ha|yo|ig|pcm)$")) {
-                throw new AppException.BadRequestException("Language must be one of: en, ha, yo, ig, pcm");
-            }
-            user.setLanguage(lang);
-        }
-
-        if (updates.containsKey("consentStatus")) {
-            String consent = updates.get("consentStatus");
-            if (!consent.matches("^(accepted|declined)$")) {
-                throw new AppException.BadRequestException("Consent status must be: accepted or declined");
-            }
-            user.setConsentStatus(consent);
-        }
-
-        if (updates.containsKey("preferredHubId")) {
-            user.setPreferredHubId(updates.get("preferredHubId"));
-        }
-
-        return ResponseEntity.ok(userRepository.save(user));
+    private ProfileResponse toResponse(User user) {
+        return new ProfileResponse(
+                user.getId(),
+                user.getPhone(),
+                user.getEmail(),
+                user.getFullName(),
+                user.getRole().name(),
+                user.getLanguage(),
+                user.getConsentStatus(),
+                user.getPreferredHubId(),
+                user.getKycLevel()
+        );
     }
 }
