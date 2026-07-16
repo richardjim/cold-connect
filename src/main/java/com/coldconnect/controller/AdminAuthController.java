@@ -12,6 +12,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -37,15 +38,35 @@ public class AdminAuthController extends BaseController {
         this.rateLimitService = rateLimitService;
     }
 
-    public record RegisterRequest(@NotBlank @Email String email,
-                                   @NotBlank @Size(min = 8) String password,
-                                   @NotBlank String fullName) {}
+    public record RegisterRequest(
+            @NotBlank @Email(message = "Must be a valid email address")
+            String email,
+            @NotBlank @Size(min = 8, message = "Password must be at least 8 characters")
+            @Pattern(
+                    regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d).+$",
+                    message = "Password must contain uppercase, lowercase and a number"
+            )
+            String password,
+            @NotBlank
+            @Size(min = 2, max = 100, message = "Full name must be between 2 and 100 characters")
+            @Pattern(regexp = "^[a-zA-Z\\s'-]+$", message = "Name must contain letters only")
+            String fullName
+    ) {}
 
-    public record LoginRequest(@NotBlank @Email String email, @NotBlank String password) {}
+    public record LoginRequest(
+            @NotBlank @Email(message = "Must be a valid email address")
+            String email,
+            @NotBlank(message = "Password is required")
+            String password
+    ) {}
+
+    public record ForgotRequest(
+            @NotBlank @Email(message = "Must be a valid email address")
+            String email
+    ) {}
 
     public record RefreshRequest(@NotBlank String refreshToken) {}
 
-    public record ForgotRequest(@NotBlank @Email String email) {}
 
     @Operation(summary = "Register admin account")
     @PostMapping("/register")
@@ -129,5 +150,16 @@ public class AdminAuthController extends BaseController {
         return (forwarded != null && !forwarded.isEmpty())
                 ? forwarded.split(",")[0].trim()
                 : req.getRemoteAddr();
+    }
+
+    public record ResendVerificationRequest(@NotBlank @Email String email) {}
+
+    @Operation(summary = "Resend email verification code")
+    @PostMapping("/resend-verification")
+    public ResponseEntity<Map<String, String>> resendVerification(
+            @Valid @RequestBody ResendVerificationRequest req,
+            HttpServletRequest http) {
+        rateLimitService.checkAuthLimit(getIp(http));
+        return ResponseEntity.ok(Map.of("message", authService.resendVerification(req.email())));
     }
 }

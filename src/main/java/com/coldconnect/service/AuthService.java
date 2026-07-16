@@ -155,4 +155,21 @@ public class AuthService {
                 });
         return "Logged out successfully.";
     }
+
+    @Transactional
+    public String resendVerification(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new AppException.NotFoundException("Email not found"));
+
+        if (user.isEmailVerified()) {
+            throw new AppException.BadRequestException("Email is already verified");
+        }
+
+        String code = String.format("%06d", new Random().nextInt(999999));
+        user.setVerificationToken(code);
+        user.setVerificationTokenExpiry(LocalDateTime.now().plusMinutes(30));
+        userRepository.save(user);
+        emailService.sendVerificationEmail(email, code);
+        return "Verification code resent. Check your email.";
+    }
 }

@@ -12,6 +12,8 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -34,11 +36,36 @@ public class OtpController extends BaseController {
         this.rateLimitService = rateLimitService;
     }
 
-    public record OtpRequestBody(@NotBlank String phone, String purpose, String preferredLanguage) {}
-    public record OtpVerifyBody(@NotBlank String phone, @NotBlank String code) {}
-    public record SignupRequest(@NotBlank String phone, @NotBlank String fullName, String language) {}
+    public record OtpRequestBody(
+            @NotBlank
+            @Pattern(regexp = "^\\+?[0-9]{7,15}$", message = "Phone number must contain digits only, 7-15 characters")
+            String phone,
+            String purpose,
+            @Pattern(regexp = "^(en|ha|yo|ig|pcm)$", message = "Language must be one of: en, ha, yo, ig, pcm")
+            String preferredLanguage
+    ) {}
 
-    // ── Signup ────────────────────────────────────────────────────────────────
+    public record SignupRequest(
+            @NotBlank
+            @Pattern(regexp = "^\\+?[0-9]{7,15}$", message = "Phone number must contain digits only, 7-15 characters")
+            String phone,
+            @NotBlank
+            @Size(min = 2, max = 100, message = "Full name must be between 2 and 100 characters")
+            @Pattern(regexp = "^[a-zA-Z\\s'-]+$", message = "Name must contain letters only")
+            String fullName,
+            @Pattern(regexp = "^(en|ha|yo|ig|pcm)$", message = "Language must be one of: en, ha, yo, ig, pcm")
+            String language
+    ) {}
+
+    public record OtpVerifyBody(
+            @NotBlank
+            @Pattern(regexp = "^\\+?[0-9]{7,15}$", message = "Phone number must contain digits only")
+            String phone,
+            @NotBlank
+            @Pattern(regexp = "^[0-9]{4,6}$", message = "OTP must be numeric digits only")
+            String code
+    ) {}
+
     @Operation(summary = "Customer signup — register account and send OTP")
     @PostMapping("/signup")
     public ResponseEntity<Map<String, String>> signup(
@@ -67,7 +94,6 @@ public class OtpController extends BaseController {
         ));
     }
 
-    // ── Login ─────────────────────────────────────────────────────────────────
     @Operation(summary = "Customer login — send OTP to registered phone")
     @PostMapping("/login")
     public ResponseEntity<Map<String, String>> login(
@@ -88,7 +114,6 @@ public class OtpController extends BaseController {
         ));
     }
 
-    // ── Verify OTP ────────────────────────────────────────────────────────────
     @Operation(summary = "Verify OTP — returns JWT tokens (use after signup or login)")
     @PostMapping("/otp/verify")
     public ResponseEntity<Map<String, Object>> verifyOtp(
@@ -107,7 +132,6 @@ public class OtpController extends BaseController {
         ));
     }
 
-    // ── Request OTP (generic) ─────────────────────────────────────────────────
     @Operation(summary = "Request OTP — generic, sends SMS to any registered phone")
     @PostMapping("/otp/request")
     public ResponseEntity<Map<String, String>> requestOtp(
