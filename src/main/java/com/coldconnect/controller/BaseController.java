@@ -19,4 +19,13 @@ public abstract class BaseController {
                 .or(() -> userRepository.findByEmail(username))
                 .orElseThrow(() -> new AppException.NotFoundException("User not found"));
     }
+
+    protected String resolveLanguage(UserDetails userDetails) {
+        try {
+            String lang = resolveUser(userDetails).getLanguage();
+            return (lang != null && !lang.isBlank()) ? lang : "en";
+        } catch (Exception e) {
+            return "en";
+        }
+    }
 }

@@ -3,9 +3,11 @@ package com.coldconnect.controller;
 import com.coldconnect.entity.User;
 import com.coldconnect.enums.Role;
 import com.coldconnect.exception.AppException;
+import com.coldconnect.i18n.AppMessages;
 import com.coldconnect.ratelimit.RateLimitService;
 import com.coldconnect.repository.UserRepository;
 import com.coldconnect.service.OtpService;
+import com.coldconnect.service.SmsService;
 import com.coldconnect.util.JwtUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -24,123 +26,171 @@ import java.util.Map;
 @Tag(name = "Customer Auth", description = "Phone OTP signup and login for customers")
 public class OtpController extends BaseController {
 
-    private final OtpService otpService;
-    private final JwtUtil jwtUtil;
+    private final OtpService       otpService;
+    private final JwtUtil          jwtUtil;
     private final RateLimitService rateLimitService;
+    private final SmsService       smsService;
+    private final AppMessages      messages;
 
-    public OtpController(UserRepository userRepository, OtpService otpService,
-                         JwtUtil jwtUtil, RateLimitService rateLimitService) {
+    public OtpController(UserRepository userRepository,
+                         OtpService otpService,
+                         JwtUtil jwtUtil,
+                         RateLimitService rateLimitService,
+                         SmsService smsService,
+                         AppMessages messages) {
         super(userRepository);
-        this.otpService = otpService;
-        this.jwtUtil = jwtUtil;
+        this.otpService       = otpService;
+        this.jwtUtil          = jwtUtil;
         this.rateLimitService = rateLimitService;
+        this.smsService       = smsService;
+        this.messages         = messages;
     }
-
-    public record OtpRequestBody(
-            @NotBlank
-            @Pattern(regexp = "^\\+?[0-9]{7,15}$", message = "Phone number must contain digits only, 7-15 characters")
-            String phone,
-            String purpose,
-            @Pattern(regexp = "^(en|ha|yo|ig|pcm)$", message = "Language must be one of: en, ha, yo, ig, pcm")
-            String preferredLanguage
-    ) {}
 
     public record SignupRequest(
             @NotBlank
-            @Pattern(regexp = "^\\+?[0-9]{7,15}$", message = "Phone number must contain digits only, 7-15 characters")
+            @Pattern(regexp = "^\\+?[0-9]{7,15}$",
+                    message = "Phone number must contain digits only, 7-15 characters")
             String phone,
             @NotBlank
             @Size(min = 2, max = 100, message = "Full name must be between 2 and 100 characters")
             @Pattern(regexp = "^[a-zA-Z\\s'-]+$", message = "Name must contain letters only")
             String fullName,
-            @Pattern(regexp = "^(en|ha|yo|ig|pcm)$", message = "Language must be one of: en, ha, yo, ig, pcm")
+            @Pattern(regexp = "^(en|ha|yo|ig|pcm)$",
+                    message = "Language must be one of: en, ha, yo, ig, pcm")
             String language
+    ) {}
+
+    public record OtpRequestBody(
+            @NotBlank
+            @Pattern(regexp = "^\\+?[0-9]{7,15}$",
+                    message = "Phone number must contain digits only, 7-15 characters")
+            String phone,
+            String purpose,
+            @Pattern(regexp = "^(en|ha|yo|ig|pcm)$",
+                    message = "Language must be one of: en, ha, yo, ig, pcm")
+            String preferredLanguage
     ) {}
 
     public record OtpVerifyBody(
             @NotBlank
-            @Pattern(regexp = "^\\+?[0-9]{7,15}$", message = "Phone number must contain digits only")
+            @Pattern(regexp = "^\\+?[0-9]{7,15}$",
+                    message = "Phone number must contain digits only")
             String phone,
             @NotBlank
             @Pattern(regexp = "^[0-9]{4,6}$", message = "OTP must be numeric digits only")
-            String code
+            String code,
+            @Pattern(regexp = "^(en|ha|yo|ig|pcm)$",
+                    message = "Language must be one of: en, ha, yo, ig, pcm")
+            String preferredLanguage
     ) {}
 
+    // ── Signup ────────────────────────────────────────────────────────────────
     @Operation(summary = "Customer signup — register account and send OTP")
     @PostMapping("/signup")
     public ResponseEntity<Map<String, String>> signup(
             @Valid @RequestBody SignupRequest req,
             HttpServletRequest http) {
-
         rateLimitService.checkAuthLimit(getIp(http));
+        String lang = req.language() != null ? req.language() : "en";
 
         if (userRepository.existsByPhone(req.phone())) {
             throw new AppException.ConflictException(
-                    "Phone already registered. Use POST /v1/auth/login to sign in.");
+                    messages.get(AppMessages.Key.PHONE_ALREADY_REGISTERED, lang));
         }
 
         User user = new User();
         user.setPhone(req.phone());
         user.setFullName(req.fullName());
-        user.setLanguage(req.language() != null ? req.language() : "en");
+        user.setLanguage(lang);
         user.setRole(Role.CUSTOMER);
         user.setEnabled(true);
         userRepository.save(user);
 
-        String msg = otpService.requestOtp(req.phone(), "signup", req.language());
+        otpService.requestOtp(req.phone(), "signup", lang);
         return ResponseEntity.ok(Map.of(
-                "message", msg,
-                "next", "POST /v1/auth/otp/verify with your OTP code"
+                "message", messages.get(AppMessages.Key.SIGNUP_SUCCESS, lang),
+                "next",    "POST /v1/auth/otp/verify"
         ));
     }
 
+    // ── Login ─────────────────────────────────────────────────────────────────
     @Operation(summary = "Customer login — send OTP to registered phone")
     @PostMapping("/login")
     public ResponseEntity<Map<String, String>> login(
             @Valid @RequestBody OtpRequestBody req,
             HttpServletRequest http) {
-
         rateLimitService.checkAuthLimit(getIp(http));
+        String lang = req.preferredLanguage() != null ? req.preferredLanguage() : "en";
 
         if (!userRepository.existsByPhone(req.phone())) {
             throw new AppException.NotFoundException(
-                    "Phone not registered. Use POST /v1/auth/signup first.");
+                    messages.get(AppMessages.Key.PHONE_NOT_REGISTERED, lang));
         }
 
-        String msg = otpService.requestOtp(req.phone(), "login", req.preferredLanguage());
+        otpService.requestOtp(req.phone(), "login", lang);
         return ResponseEntity.ok(Map.of(
-                "message", msg,
-                "next", "POST /v1/auth/otp/verify with your OTP code"
+                "message", messages.get(AppMessages.Key.LOGIN_NEXT_STEP, lang),
+                "next",    "POST /v1/auth/otp/verify"
         ));
     }
 
-    @Operation(summary = "Verify OTP — returns JWT tokens (use after signup or login)")
+    // ── Verify OTP ────────────────────────────────────────────────────────────
+    @Operation(summary = "Verify OTP — returns JWT tokens")
     @PostMapping("/otp/verify")
     public ResponseEntity<Map<String, Object>> verifyOtp(
             @Valid @RequestBody OtpVerifyBody req,
             HttpServletRequest http) {
-
         rateLimitService.checkAuthLimit(getIp(http));
-        User user = otpService.verifyOtp(req.phone(), req.code());
+        String lang = req.preferredLanguage() != null ? req.preferredLanguage() : "en";
+
+        User user = otpService.verifyOtp(req.phone(), req.code(), lang);
         return ResponseEntity.ok(Map.of(
+                "message",      messages.get(AppMessages.Key.OTP_VERIFIED, lang),
                 "accessToken",  jwtUtil.generateAccessToken(user),
                 "refreshToken", jwtUtil.generateRefreshToken(user),
                 "tokenType",    "Bearer",
                 "role",         user.getRole().name(),
                 "userId",       user.getId(),
-                "fullName",     user.getFullName() != null ? user.getFullName() : ""
+                "fullName",     user.getFullName() != null ? user.getFullName() : "",
+                "language",     user.getLanguage() != null ? user.getLanguage() : "en"
         ));
     }
 
-    @Operation(summary = "Request OTP — generic, sends SMS to any registered phone")
+    // ── Resend OTP ────────────────────────────────────────────────────────────
+    @Operation(summary = "Resend OTP — for any registered phone")
     @PostMapping("/otp/request")
     public ResponseEntity<Map<String, String>> requestOtp(
             @Valid @RequestBody OtpRequestBody req,
             HttpServletRequest http) {
-
         rateLimitService.checkAuthLimit(getIp(http));
-        String msg = otpService.requestOtp(req.phone(), req.purpose(), req.preferredLanguage());
+        String lang = req.preferredLanguage() != null ? req.preferredLanguage() : "en";
+        String msg  = otpService.requestOtp(req.phone(), req.purpose(), lang);
         return ResponseEntity.ok(Map.of("message", msg));
+    }
+
+    // ── Call Me Instead ───────────────────────────────────────────────────────
+    @Operation(
+            summary = "Call Me Instead — trigger voice OTP call",
+            description = "Sends OTP via phone call. Requires Termii integration."
+    )
+    @PostMapping("/otp/call")
+    public ResponseEntity<Map<String, String>> voiceOtp(
+            @Valid @RequestBody OtpRequestBody req,
+            HttpServletRequest http) {
+        rateLimitService.checkAuthLimit(getIp(http));
+        String lang = req.preferredLanguage() != null ? req.preferredLanguage() : "en";
+
+        if (!userRepository.existsByPhone(req.phone())) {
+            throw new AppException.NotFoundException(
+                    messages.get(AppMessages.Key.PHONE_NOT_REGISTERED, lang));
+        }
+
+        otpService.requestOtp(req.phone(), "voice", lang);
+        smsService.sendOtpVoiceCall(req.phone(), "");
+
+        return ResponseEntity.ok(Map.of(
+                "message", messages.get(AppMessages.Key.VOICE_OTP_INITIATED, lang)
+        ));
     }
 
     private String getIp(HttpServletRequest req) {

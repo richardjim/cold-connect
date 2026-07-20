@@ -22,39 +22,79 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @EnableMethodSecurity
 public class SecurityConfig {
 
-    private final JwtAuthFilter jwtAuthFilter;
+    private final JwtAuthFilter      jwtAuthFilter;
     private final UserDetailsService userDetailsService;
 
-    public SecurityConfig(JwtAuthFilter jwtAuthFilter, UserDetailsService userDetailsService) {
-        this.jwtAuthFilter = jwtAuthFilter;
+    public SecurityConfig(JwtAuthFilter jwtAuthFilter,
+                          UserDetailsService userDetailsService) {
+        this.jwtAuthFilter      = jwtAuthFilter;
         this.userDetailsService = userDetailsService;
     }
 
     private static final String[] SWAGGER_PATHS = {
-        "/swagger-ui.html", "/swagger-ui/**", "/api-docs", "/api-docs/**", "/v3/api-docs/**"
+            "/swagger-ui.html", "/swagger-ui/**",
+            "/api-docs", "/api-docs/**", "/v3/api-docs/**"
+    };
+
+    private static final String[] PUBLIC_PATHS = {
+            // Customer auth
+            "/v1/auth/signup",
+            "/v1/auth/login",
+            "/v1/auth/otp/verify",
+            "/v1/auth/otp/request",
+            "/v1/auth/otp/call",
+            // Admin auth
+            "/api/auth/register",
+            "/api/auth/login",
+            "/api/auth/verify-email",
+            "/api/auth/forgot-password",
+            "/api/auth/reset-password",
+            "/api/auth/refresh",
+            "/api/auth/resend-verification",
+            // Public data
+            "/v1/hubs",
+            "/v1/hubs/**",
+            "/v1/regions/**",
+            "/v1/commodities/**",
+            // Website public
+            "/v1/leads/**",
+            "/v1/public/**",
+            "/v1/newsletter/**",
+            "/web/pages/**"
     };
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         return http
                 .csrf(csrf -> csrf.disable())
-                .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .sessionManagement(s -> s.sessionCreationPolicy(
+                        SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/**").permitAll()
-                        .requestMatchers("/v1/auth/**").permitAll()
-                        .requestMatchers("/v1/hubs/**").permitAll()
-                        .requestMatchers("/v1/regions/**").permitAll()
-                        .requestMatchers("/v1/commodities/**").permitAll()
+
+                        // Swagger
                         .requestMatchers(SWAGGER_PATHS).permitAll()
+
+                        // Public endpoints
+                        .requestMatchers(PUBLIC_PATHS).permitAll()
+
+                        // Admin only
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
+
+                        // Operator + Admin
                         .requestMatchers("/api/operator/**").hasAnyRole("ADMIN", "OPERATOR")
-                        .requestMatchers("/api/driver/**").hasAnyRole("ADMIN", "OPERATOR", "DRIVER")
-                        .requestMatchers("/api/customer/**").hasAnyRole("ADMIN", "OPERATOR", "DRIVER", "CUSTOMER")
+                        .requestMatchers("/v1/operator/**").hasAnyRole("ADMIN", "OPERATOR")
+
+                        // Driver + above
+                        .requestMatchers("/v1/driver/**").hasAnyRole("ADMIN", "OPERATOR", "DRIVER")
+
+                        // All authenticated /v1/**
                         .requestMatchers("/v1/**").authenticated()
+
                         .anyRequest().authenticated()
                 )
                 .authenticationProvider(authenticationProvider())
-                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(jwtAuthFilter,
+                        UsernamePasswordAuthenticationFilter.class)
                 .build();
     }
 
@@ -72,7 +112,8 @@ public class SecurityConfig {
     }
 
     @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
+    public AuthenticationManager authenticationManager(
+            AuthenticationConfiguration config) throws Exception {
         return config.getAuthenticationManager();
     }
 }

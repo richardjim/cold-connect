@@ -1,8 +1,8 @@
 package com.coldconnect.service;
 
 import com.coldconnect.entity.User;
-import com.coldconnect.enums.Role;
 import com.coldconnect.exception.AppException;
+import com.coldconnect.i18n.AppMessages;
 import com.coldconnect.repository.UserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -14,11 +14,15 @@ import java.util.Random;
 public class OtpService {
 
     private final UserRepository userRepository;
-    private final SmsService smsService;
+    private final SmsService     smsService;
+    private final AppMessages    messages;
 
-    public OtpService(UserRepository userRepository, SmsService smsService) {
+    public OtpService(UserRepository userRepository,
+                      SmsService smsService,
+                      AppMessages messages) {
         this.userRepository = userRepository;
-        this.smsService = smsService;
+        this.smsService     = smsService;
+        this.messages       = messages;
     }
 
     @Transactional
@@ -27,33 +31,38 @@ public class OtpService {
 
         User user = userRepository.findByPhone(phone)
                 .orElseThrow(() -> new AppException.NotFoundException(
-                        "Phone not registered. Use POST /v1/auth/signup first."));
+                        messages.get(AppMessages.Key.PHONE_NOT_REGISTERED, language)));
 
         user.setOtpCode(otp);
         user.setOtpExpiry(LocalDateTime.now().plusMinutes(10));
         userRepository.save(user);
+
         smsService.sendOtp(phone, otp, language != null ? language : "en");
 
         String masked = phone.length() > 4
                 ? phone.substring(0, phone.length() - 4) + "****"
                 : "****";
-        return "OTP sent to " + masked;
+
+        return messages.get(AppMessages.Key.OTP_SENT, language) + " (" + masked + ")";
     }
 
     @Transactional
-    public User verifyOtp(String phone, String code) {
+    public User verifyOtp(String phone, String code, String language) {
         User user = userRepository.findByPhone(phone)
-                .orElseThrow(() -> new AppException.NotFoundException("Phone not registered"));
+                .orElseThrow(() -> new AppException.NotFoundException(
+                        messages.get(AppMessages.Key.PHONE_NOT_REGISTERED, language)));
 
         // Master test OTP — remove when Termii is wired
         boolean isMasterCode = "1234".equals(code);
 
         if (!isMasterCode) {
             if (user.getOtpCode() == null || !user.getOtpCode().equals(code)) {
-                throw new AppException.BadRequestException("Invalid OTP code");
+                throw new AppException.BadRequestException(
+                        messages.get(AppMessages.Key.OTP_INVALID, language));
             }
             if (user.getOtpExpiry().isBefore(LocalDateTime.now())) {
-                throw new AppException.BadRequestException("OTP has expired. Please request a new one.");
+                throw new AppException.BadRequestException(
+                        messages.get(AppMessages.Key.OTP_EXPIRED, language));
             }
         }
 
