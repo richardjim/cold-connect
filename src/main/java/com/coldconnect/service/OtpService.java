@@ -27,11 +27,35 @@ public class OtpService {
 
     @Transactional
     public String requestOtp(String phone, String purpose, String language) {
+
+        // Input validation
+        if (phone == null || phone.isBlank()) {
+            throw new AppException.BadRequestException("Phone number is required");
+        }
+        if (!phone.matches("^\\+?[0-9]{7,15}$")) {
+            throw new AppException.BadRequestException(
+                    "Invalid phone number format");
+        }
+
         String otp = String.format("%06d", new Random().nextInt(999999));
 
+        // DB validation — phone must exist
         User user = userRepository.findByPhone(phone)
                 .orElseThrow(() -> new AppException.NotFoundException(
                         messages.get(AppMessages.Key.PHONE_NOT_REGISTERED, language)));
+
+        // Check account is enabled
+        if (!user.isEnabled()) {
+            throw new AppException.UnauthorizedException(
+                    "Account is disabled. Please contact support.");
+        }
+
+        // Rate limit — prevent OTP spam: block if last OTP was sent < 60 seconds ago
+        if (user.getOtpExpiry() != null &&
+                user.getOtpExpiry().isAfter(LocalDateTime.now().plusMinutes(9))) {
+            throw new AppException.TooManyRequestsException(
+                    "Please wait before requesting another OTP.");
+        }
 
         user.setOtpCode(otp);
         user.setOtpExpiry(LocalDateTime.now().plusMinutes(10));
@@ -48,24 +72,53 @@ public class OtpService {
 
     @Transactional
     public User verifyOtp(String phone, String code, String language) {
+
+        // Input validation
+        if (phone == null || phone.isBlank()) {
+            throw new AppException.BadRequestException("Phone number is required");
+        }
+        if (code == null || code.isBlank()) {
+            throw new AppException.BadRequestException("OTP code is required");
+        }
+        if (!code.matches("^[0-9]{4,6}$")) {
+            throw new AppException.BadRequestException(
+                    messages.get(AppMessages.Key.OTP_INVALID, language));
+        }
+
+        // DB validation — phone must exist
         User user = userRepository.findByPhone(phone)
                 .orElseThrow(() -> new AppException.NotFoundException(
                         messages.get(AppMessages.Key.PHONE_NOT_REGISTERED, language)));
+
+        // Check account is enabled
+        if (!user.isEnabled()) {
+            throw new AppException.UnauthorizedException(
+                    "Account is disabled. Please contact support.");
+        }
 
         // Master test OTP — remove when Termii is wired
         boolean isMasterCode = "1234".equals(code);
 
         if (!isMasterCode) {
-            if (user.getOtpCode() == null || !user.getOtpCode().equals(code)) {
+            // Check OTP exists
+            if (user.getOtpCode() == null) {
+                throw new AppException.BadRequestException(
+                        "No active OTP found. Please request a new one.");
+            }
+            // Check OTP matches
+            if (!user.getOtpCode().equals(code)) {
                 throw new AppException.BadRequestException(
                         messages.get(AppMessages.Key.OTP_INVALID, language));
             }
-            if (user.getOtpExpiry().isBefore(LocalDateTime.now())) {
+            // Check OTP not expired
+            if (user.getOtpExpiry() == null ||
+                    user.getOtpExpiry().isBefore(LocalDateTime.now())) {
                 throw new AppException.BadRequestException(
                         messages.get(AppMessages.Key.OTP_EXPIRED, language));
             }
         }
 
+        // Clear OTP after successful verification
         user.setOtpCode(null);
         user.setOtpExpiry(null);
         return userRepository.save(user);
