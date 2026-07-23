@@ -46,6 +46,7 @@ public class User implements UserDetails {
 
     private String refreshToken;
     private LocalDateTime refreshTokenExpiry;
+    private Long customerTypeId;
 
     private String passwordResetToken;
     private LocalDateTime passwordResetTokenExpiry;
@@ -122,6 +123,9 @@ public class User implements UserDetails {
     public void setPasswordResetTokenExpiry(LocalDateTime v) { this.passwordResetTokenExpiry = v; }
 
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
+
+    public Long getCustomerTypeId() { return customerTypeId; }
+    public void setCustomerTypeId(Long customerTypeId) { this.customerTypeId = customerTypeId; }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }

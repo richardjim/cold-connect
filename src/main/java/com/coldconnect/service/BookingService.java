@@ -146,13 +146,17 @@ public class BookingService {
 
         List<ServiceRate> rates = rateRepository.findByRegionAndServiceType(
                 region, serviceType.toUpperCase());
-        BigDecimal total = BigDecimal.ZERO;
-        if (!rates.isEmpty()) {
-            ServiceRate rate = rates.get(0);
-            total = rate.getBaseFee()
-                    .add(rate.getStorageDayFee().multiply(BigDecimal.valueOf(days)))
-                    .multiply(BigDecimal.valueOf(quantityKg / 100));
+
+        if (rates.isEmpty()) {
+            throw new AppException.BadRequestException(
+                    "No service rate configured for region '" + region
+                            + "' and service type '" + serviceType + "'. Contact admin.");
         }
+
+        ServiceRate rate = rates.get(0);
+        BigDecimal total = rate.getBaseFee()
+                .add(rate.getStorageDayFee().multiply(BigDecimal.valueOf(days)))
+                .multiply(BigDecimal.valueOf(quantityKg / 100));
 
         Booking booking = new Booking();
         booking.setCustomerId(customerId);

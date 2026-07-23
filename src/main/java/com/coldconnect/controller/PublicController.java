@@ -1,7 +1,9 @@
 package com.coldconnect.controller;
 
+import com.coldconnect.entity.CustomerType;
 import com.coldconnect.entity.ImpactMetric;
 import com.coldconnect.entity.LeadEnquiry;
+import com.coldconnect.repository.CustomerTypeRepository;
 import com.coldconnect.repository.ImpactMetricRepository;
 import com.coldconnect.repository.LeadEnquiryRepository;
 import com.coldconnect.repository.UserRepository;
@@ -21,15 +23,18 @@ import java.util.Map;
 @Tag(name = "Public", description = "Public endpoints — website lead capture and impact stats")
 public class PublicController extends BaseController {
 
-    private final LeadEnquiryRepository  leadRepository;
-    private final ImpactMetricRepository impactRepository;
+    private final LeadEnquiryRepository   leadRepository;
+    private final ImpactMetricRepository  impactRepository;
+    private final CustomerTypeRepository  customerTypeRepository;
 
     public PublicController(UserRepository userRepository,
                             LeadEnquiryRepository leadRepository,
-                            ImpactMetricRepository impactRepository) {
+                            ImpactMetricRepository impactRepository,
+                            CustomerTypeRepository customerTypeRepository) {
         super(userRepository);
-        this.leadRepository   = leadRepository;
-        this.impactRepository = impactRepository;
+        this.leadRepository          = leadRepository;
+        this.impactRepository        = impactRepository;
+        this.customerTypeRepository  = customerTypeRepository;
     }
 
     public record ContactLeadRequest(
@@ -114,6 +119,12 @@ public class PublicController extends BaseController {
         ));
     }
 
+    @Operation(summary = "Get available customer types — public")
+    @GetMapping("/v1/customer-types")
+    public ResponseEntity<List<CustomerType>> getCustomerTypes() {
+        return ResponseEntity.ok(customerTypeRepository.findByActiveTrue());
+    }
+
     @Operation(
             summary = "Public impact summary — website stats",
             description = "Labels pilots vs projections. No auth required."
@@ -127,24 +138,22 @@ public class PublicController extends BaseController {
         double foodSaved  = metrics.stream()
                 .mapToDouble(m -> m.getFoodSavedKg() != null ? m.getFoodSavedKg() : 0)
                 .sum();
-
         double co2Avoided = metrics.stream()
                 .mapToDouble(m -> m.getCo2AvoidedKg() != null ? m.getCo2AvoidedKg() : 0)
                 .sum();
-
         double solarKwh   = metrics.stream()
                 .mapToDouble(m -> m.getSolarCoolingKwh() != null ? m.getSolarCoolingKwh() : 0)
                 .sum();
 
         return ResponseEntity.ok(Map.of(
-                "status",           "PILOT",
-                "region",           region != null ? region : "Jos",
-                "foodSavedKg",      foodSaved,
-                "co2AvoidedKg",     co2Avoided,
-                "solarCoolingKwh",  solarKwh,
-                "usersServed",      metrics.size(),
-                "treesEquivalent",  co2Avoided / 21.0,
-                "disclaimer",       "Figures are pilot estimates. Projections are indicative only."
+                "status",          "PILOT",
+                "region",          region != null ? region : "Jos",
+                "foodSavedKg",     foodSaved,
+                "co2AvoidedKg",    co2Avoided,
+                "solarCoolingKwh", solarKwh,
+                "usersServed",     metrics.size(),
+                "treesEquivalent", co2Avoided / 21.0,
+                "disclaimer",      "Figures are pilot estimates. Projections are indicative only."
         ));
     }
 

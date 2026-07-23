@@ -57,7 +57,8 @@ public class OtpController extends BaseController {
             String fullName,
             @Pattern(regexp = "^(en|ha|yo|ig|pcm)$",
                     message = "Language must be one of: en, ha, yo, ig, pcm")
-            String language
+            String language,
+            Long customerTypeId  // optional — e.g. 1=FARMER, 2=BUYER
     ) {}
 
     public record OtpRequestBody(
@@ -104,6 +105,7 @@ public class OtpController extends BaseController {
         user.setLanguage(lang);
         user.setRole(Role.CUSTOMER);
         user.setEnabled(true);
+        user.setCustomerTypeId(req.customerTypeId());
         userRepository.save(user);
 
         otpService.requestOtp(req.phone(), "signup", lang);
