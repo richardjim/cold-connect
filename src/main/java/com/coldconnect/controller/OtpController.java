@@ -205,7 +205,7 @@ public class OtpController extends BaseController {
     public record RefreshRequest(@NotBlank String refreshToken) {}
 
     @Operation(summary = "Refresh customer access token")
-    @PostMapping("/auth/refresh")
+    @PostMapping("/refresh")
     public ResponseEntity<Map<String, Object>> refresh(
             @Valid @RequestBody RefreshRequest req,
             HttpServletRequest http) {
