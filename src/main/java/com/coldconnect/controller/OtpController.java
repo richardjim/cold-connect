@@ -201,4 +201,34 @@ public class OtpController extends BaseController {
                 ? forwarded.split(",")[0].trim()
                 : req.getRemoteAddr();
     }
+
+    public record RefreshRequest(@NotBlank String refreshToken) {}
+
+    @Operation(summary = "Refresh customer access token")
+    @PostMapping("/auth/refresh")
+    public ResponseEntity<Map<String, Object>> refresh(
+            @Valid @RequestBody RefreshRequest req,
+            HttpServletRequest http) {
+
+        rateLimitService.checkApiLimit(getIp(http));
+
+        String phone = jwtUtil.extractUsername(req.refreshToken());
+
+        User user = userRepository.findByPhone(phone)
+                .orElseThrow(() -> new AppException.UnauthorizedException(
+                        "Invalid refresh token"));
+
+        if (!jwtUtil.isTokenValid(req.refreshToken(), user)) {
+            throw new AppException.UnauthorizedException(
+                    "Refresh token is invalid or expired. Please log in again.");
+        }
+
+        return ResponseEntity.ok(Map.of(
+                "accessToken",  jwtUtil.generateAccessToken(user),
+                "refreshToken", jwtUtil.generateRefreshToken(user),
+                "tokenType",    "Bearer",
+                "userId",       user.getId(),
+                "role",         user.getRole().name()
+        ));
+    }
 }
