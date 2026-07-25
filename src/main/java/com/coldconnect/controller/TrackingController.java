@@ -97,4 +97,36 @@ public class TrackingController extends BaseController {
                 "count",     readings.size()
         ));
     }
+
+    @Operation(
+            summary = "Get all IoT sensor readings",
+            description = "Returns latest reading per asset with alert flags"
+    )
+    @GetMapping("/v1/iot/readings")
+    public ResponseEntity<Map<String, Object>> getAllIotReadings(
+            @RequestParam(required = false) String assetId,
+            @RequestParam(defaultValue = "20") int limit) {
+
+        List<SensorReading> readings;
+
+        if (assetId != null) {
+            readings = sensorRepository.findByAssetIdOrderByTimestampDesc(assetId);
+        } else {
+            readings = sensorRepository.findAll(
+                    org.springframework.data.domain.PageRequest.of(0, limit,
+                            org.springframework.data.domain.Sort.by("timestamp").descending())
+            ).getContent();
+        }
+
+        long alertCount = readings.stream()
+                .filter(r -> r.getTempC() != null &&
+                        (r.getTempC() > 8.0 || r.getTempC() < 0.0))
+                .count();
+
+        return ResponseEntity.ok(Map.of(
+                "readings",   readings,
+                "count",      readings.size(),
+                "alertCount", alertCount
+        ));
+    }
 }

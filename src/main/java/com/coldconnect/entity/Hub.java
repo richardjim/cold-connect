@@ -20,6 +20,15 @@ public class Hub {
     private String operatingHours;
     private Double capacityKg;
     private Double currentLoadKg;
+    private Double tempCurrentC;        // current cold room temperature
+    private Double tempTargetMin;       // target min temp
+    private Double tempTargetMax;       // target max temp
+    private String powerType;           // SOLAR, GRID, HYBRID, GENERATOR
+    private Double solarCapacityKw;     // solar panel capacity
+    private Double batteryCapacityKwh;  // battery storage
+    private String powerStatus;         // ON_GRID, ON_SOLAR, ON_BATTERY, OUTAGE
+
+
 
     @Enumerated(EnumType.STRING)
     private HubStatus status;
@@ -54,4 +63,19 @@ public class Hub {
     public void setStatus(HubStatus status) { this.status = status; }
     public Long getManagerId() { return managerId; }
     public void setManagerId(Long managerId) { this.managerId = managerId; }
+    // Getters and setters
+    public Double getTempCurrentC() { return tempCurrentC; }
+    public void setTempCurrentC(Double tempCurrentC) { this.tempCurrentC = tempCurrentC; }
+    public Double getTempTargetMin() { return tempTargetMin; }
+    public void setTempTargetMin(Double tempTargetMin) { this.tempTargetMin = tempTargetMin; }
+    public Double getTempTargetMax() { return tempTargetMax; }
+    public void setTempTargetMax(Double tempTargetMax) { this.tempTargetMax = tempTargetMax; }
+    public String getPowerType() { return powerType; }
+    public void setPowerType(String powerType) { this.powerType = powerType; }
+    public Double getSolarCapacityKw() { return solarCapacityKw; }
+    public void setSolarCapacityKw(Double solarCapacityKw) { this.solarCapacityKw = solarCapacityKw; }
+    public Double getBatteryCapacityKwh() { return batteryCapacityKwh; }
+    public void setBatteryCapacityKwh(Double batteryCapacityKwh) { this.batteryCapacityKwh = batteryCapacityKwh; }
+    public String getPowerStatus() { return powerStatus; }
+    public void setPowerStatus(String powerStatus) { this.powerStatus = powerStatus; }
 }

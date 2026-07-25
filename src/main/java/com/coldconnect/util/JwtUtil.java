@@ -46,15 +46,6 @@ public class JwtUtil {
         return getClaims(token).getSubject();
     }
 
-    public boolean isTokenValid(String token, UserDetails user) {
-        try {
-            String username = extractUsername(token);
-            return username.equals(user.getUsername()) && !isTokenExpired(token);
-        } catch (JwtException e) {
-            return false;
-        }
-    }
-
     private boolean isTokenExpired(String token) {
         return getClaims(token).getExpiration().before(new Date());
     }
@@ -65,5 +56,16 @@ public class JwtUtil {
                 .build()
                 .parseClaimsJws(token)
                 .getBody();
+    }
+
+    public boolean isTokenValid(String token, UserDetails user) {
+        try {
+            String username = extractUsername(token);
+            return username != null
+                    && username.equals(user.getUsername())
+                    && !isTokenExpired(token);
+        } catch (JwtException e) {
+            return false;
+        }
     }
 }

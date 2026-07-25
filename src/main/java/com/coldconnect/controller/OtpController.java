@@ -212,23 +212,42 @@ public class OtpController extends BaseController {
 
         rateLimitService.checkApiLimit(getIp(http));
 
-        String phone = jwtUtil.extractUsername(req.refreshToken());
+        try {
+            String phone = jwtUtil.extractUsername(req.refreshToken());
 
-        User user = userRepository.findByPhone(phone)
-                .orElseThrow(() -> new AppException.UnauthorizedException(
-                        "Invalid refresh token"));
+            if (phone == null) {
+                throw new AppException.UnauthorizedException(
+                        "Invalid refresh token");
+            }
 
-        if (!jwtUtil.isTokenValid(req.refreshToken(), user)) {
+            User user = userRepository.findByPhone(phone)
+                    .orElseThrow(() -> new AppException.UnauthorizedException(
+                            "User not found"));
+
+            if (!user.isEnabled()) {
+                throw new AppException.UnauthorizedException(
+                        "Account is disabled");
+            }
+
+            // Validate the token is still good
+            if (!jwtUtil.isTokenValid(req.refreshToken(), user)) {
+                throw new AppException.UnauthorizedException(
+                        "Refresh token expired. Please log in again.");
+            }
+
+            return ResponseEntity.ok(Map.of(
+                    "accessToken",  jwtUtil.generateAccessToken(user),
+                    "refreshToken", jwtUtil.generateRefreshToken(user),
+                    "tokenType",    "Bearer",
+                    "userId",       user.getId(),
+                    "role",         user.getRole().name()
+            ));
+
+        } catch (AppException.UnauthorizedException e) {
+            throw e;
+        } catch (Exception e) {
             throw new AppException.UnauthorizedException(
-                    "Refresh token is invalid or expired. Please log in again.");
+                    "Invalid or expired refresh token. Please log in again.");
         }
-
-        return ResponseEntity.ok(Map.of(
-                "accessToken",  jwtUtil.generateAccessToken(user),
-                "refreshToken", jwtUtil.generateRefreshToken(user),
-                "tokenType",    "Bearer",
-                "userId",       user.getId(),
-                "role",         user.getRole().name()
-        ));
     }
 }
