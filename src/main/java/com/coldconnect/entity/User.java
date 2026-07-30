@@ -55,6 +55,10 @@ public class User implements UserDetails {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
+    private String location;
+    private String persona;
+    private String organizationId;
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
@@ -65,6 +69,14 @@ public class User implements UserDetails {
     protected void onUpdate() {
         updatedAt = LocalDateTime.now();
     }
+
+
+    public String getLocation() { return location; }
+    public void setLocation(String location) { this.location = location; }
+    public String getPersona() { return persona; }
+    public void setPersona(String persona) { this.persona = persona; }
+    public String getOrganizationId() { return organizationId; }
+    public void setOrganizationId(String organizationId) { this.organizationId = organizationId; }
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }

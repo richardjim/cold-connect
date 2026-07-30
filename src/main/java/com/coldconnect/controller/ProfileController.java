@@ -39,23 +39,36 @@ public class ProfileController extends BaseController {
     @Schema(description = "Update profile request — all fields optional")
     public record UpdateProfileRequest(
 
-            @Schema(example = "John Farmer", description = "Letters only, 2-100 characters")
+            @Schema(example = "John Farmer")
             @Size(min = 2, max = 100, message = "Full name must be between 2 and 100 characters")
             @Pattern(regexp = "^[a-zA-Z\\s'-]+$", message = "Name must contain letters only")
             String fullName,
 
-            @Schema(example = "en", description = "Supported: en, ha, yo, ig, pcm")
+            @Schema(example = "en", description = "en · ha · yo · ig · pcm")
             @Pattern(regexp = "^(en|ha|yo|ig|pcm)$",
                     message = "Language must be one of: en, ha, yo, ig, pcm")
             String language,
 
-            @Schema(example = "accepted", description = "accepted or declined")
+            @Schema(example = "accepted", description = "accepted · declined")
             @Pattern(regexp = "^(accepted|declined)$",
                     message = "Consent must be: accepted or declined")
             String consentStatus,
 
-            @Schema(example = "HUB-JOS-01", description = "Preferred cold hub ID")
-            String preferredHubId
+            @Schema(example = "HUB-JOS-01")
+            String preferredHubId,
+
+            @Schema(example = "Jos, Plateau State")
+            String location,
+
+            @Schema(example = "FARMER",
+                    description = "FARMER · MARKET_TRADER · COOPERATIVE · BUYER · PROCESSOR")
+            String persona,
+
+            @Schema(example = "1")
+            Long customerTypeId,
+
+            @Schema(example = "optional-org-id")
+            String organizationId
     ) {}
 
     @Schema(description = "Profile response — sensitive fields excluded")
@@ -68,6 +81,10 @@ public class ProfileController extends BaseController {
             String language,
             String consentStatus,
             String preferredHubId,
+            String location,
+            String persona,
+            Long   customerTypeId,
+            String organizationId,
             String kycLevel
     ) {}
 
@@ -79,19 +96,24 @@ public class ProfileController extends BaseController {
         return ResponseEntity.ok(toResponse(user));
     }
 
-    @Operation(
-            summary = "Update my profile",
-            description = "All fields optional. Only provided fields are updated."
-    )
+    @Operation(summary = "Update my profile")
     @PatchMapping
     public ResponseEntity<Map<String, Object>> updateProfile(
             @AuthenticationPrincipal UserDetails userDetails,
             @Valid @RequestBody UpdateProfileRequest req) {
-        String lang   = resolveLanguage(userDetails);
-        User   user   = resolveUser(userDetails);
-        User updated  = profileService.updateProfile(
-                user.getId(), req.fullName(), req.language(),
-                req.consentStatus(), req.preferredHubId());
+        String lang  = resolveLanguage(userDetails);
+        User   user  = resolveUser(userDetails);
+        User updated = profileService.updateProfile(
+                user.getId(),
+                req.fullName(),
+                req.language(),
+                req.consentStatus(),
+                req.preferredHubId(),
+                req.location(),
+                req.persona(),
+                req.customerTypeId(),
+                req.organizationId()
+        );
         return ResponseEntity.ok(Map.of(
                 "message", messages.get(AppMessages.Key.PROFILE_UPDATED, lang),
                 "profile", toResponse(updated)
@@ -108,6 +130,10 @@ public class ProfileController extends BaseController {
                 user.getLanguage(),
                 user.getConsentStatus(),
                 user.getPreferredHubId(),
+                user.getLocation(),
+                user.getPersona(),
+                user.getCustomerTypeId(),
+                user.getOrganizationId(),
                 user.getKycLevel()
         );
     }

@@ -10,6 +10,7 @@ import com.coldconnect.service.OtpService;
 import com.coldconnect.service.SmsService;
 import com.coldconnect.util.JwtUtil;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -51,14 +52,36 @@ public class OtpController extends BaseController {
             @Pattern(regexp = "^\\+?[0-9]{7,15}$",
                     message = "Phone number must contain digits only, 7-15 characters")
             String phone,
+
             @NotBlank
             @Size(min = 2, max = 100, message = "Full name must be between 2 and 100 characters")
             @Pattern(regexp = "^[a-zA-Z\\s'-]+$", message = "Name must contain letters only")
             String fullName,
+
             @Pattern(regexp = "^(en|ha|yo|ig|pcm)$",
                     message = "Language must be one of: en, ha, yo, ig, pcm")
             String language,
-            Long customerTypeId  // optional — e.g. 1=FARMER, 2=BUYER
+
+            @Schema(example = "1", description = "Customer type ID from GET /v1/customer-types")
+            Long customerTypeId,
+
+            @Schema(example = "Jos, Plateau State", description = "User location or market area")
+            String location,
+
+            @Schema(example = "HUB-JOS-01", description = "Preferred cold hub ID")
+            String preferredHubId,
+
+            @Schema(example = "accepted", description = "accepted or declined")
+            @Pattern(regexp = "^(accepted|declined)$",
+                    message = "Consent must be: accepted or declined")
+            String consentStatus,
+
+            @Schema(example = "FARMER",
+                    description = "FARMER · MARKET_TRADER · COOPERATIVE · BUYER · PROCESSOR")
+            String persona,
+
+            @Schema(example = "optional-org-id", description = "Organization ID if applicable")
+            String organizationId
     ) {}
 
     public record OtpRequestBody(
@@ -86,7 +109,16 @@ public class OtpController extends BaseController {
     ) {}
 
     // ── Signup ────────────────────────────────────────────────────────────────
-    @Operation(summary = "Customer signup — register account and send OTP")
+    @Operation(
+            summary = "Customer signup — register account and send OTP",
+            description = """
+        Creates account and sends OTP. All profile fields can be set here at signup.
+        
+        **Required:** phone, fullName
+        
+        **Optional:** language, customerTypeId, location, preferredHubId, consentStatus, persona, organizationId
+        """
+    )
     @PostMapping("/signup")
     public ResponseEntity<Map<String, String>> signup(
             @Valid @RequestBody SignupRequest req,
@@ -105,7 +137,27 @@ public class OtpController extends BaseController {
         user.setLanguage(lang);
         user.setRole(Role.CUSTOMER);
         user.setEnabled(true);
-        user.setCustomerTypeId(req.customerTypeId());
+
+        // Optional profile fields — set at signup if provided
+        if (req.customerTypeId() != null) {
+            user.setCustomerTypeId(req.customerTypeId());
+        }
+        if (req.location() != null && !req.location().isBlank()) {
+            user.setLocation(req.location());
+        }
+        if (req.preferredHubId() != null && !req.preferredHubId().isBlank()) {
+            user.setPreferredHubId(req.preferredHubId());
+        }
+        if (req.consentStatus() != null && !req.consentStatus().isBlank()) {
+            user.setConsentStatus(req.consentStatus());
+        }
+        if (req.persona() != null && !req.persona().isBlank()) {
+            user.setPersona(req.persona());
+        }
+        if (req.organizationId() != null && !req.organizationId().isBlank()) {
+            user.setOrganizationId(req.organizationId());
+        }
+
         userRepository.save(user);
 
         otpService.requestOtp(req.phone(), "signup", lang);

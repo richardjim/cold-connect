@@ -22,7 +22,9 @@ public class ProfileService {
 
     @Transactional
     public User updateProfile(Long userId, String fullName, String language,
-                              String consentStatus, String preferredHubId) {
+                              String consentStatus, String preferredHubId,
+                              String location, String persona,
+                              Long customerTypeId, String organizationId) {
 
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new AppException.NotFoundException("User not found"));
@@ -40,17 +42,31 @@ public class ProfileService {
         }
 
         if (preferredHubId != null) {
-            // Validate hub exists using EntityManager
             Long hubCount = (Long) entityManager
                     .createQuery("SELECT COUNT(h) FROM Hub h WHERE h.hubId = :hubId")
                     .setParameter("hubId", preferredHubId)
                     .getSingleResult();
-
             if (hubCount == 0) {
-                throw new AppException.NotFoundException("Hub not found: " + preferredHubId);
+                throw new AppException.NotFoundException(
+                        "Hub not found: " + preferredHubId);
             }
-
             user.setPreferredHubId(preferredHubId);
+        }
+
+        if (location != null && !location.isBlank()) {
+            user.setLocation(location);
+        }
+
+        if (persona != null && !persona.isBlank()) {
+            user.setPersona(persona);
+        }
+
+        if (customerTypeId != null) {
+            user.setCustomerTypeId(customerTypeId);
+        }
+
+        if (organizationId != null && !organizationId.isBlank()) {
+            user.setOrganizationId(organizationId);
         }
 
         return userRepository.save(user);
