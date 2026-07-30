@@ -17,8 +17,8 @@ import java.util.List;
 @Configuration
 @OpenAPIDefinition(
         info = @Info(
-                title       = "Cold Connect API",
-                version     = "1.0",
+                title   = "Cold Connect API",
+                version = "1.0",
                 description = """
             Truewatt Cold Connect — Food & Package Delivery Platform
 
@@ -33,8 +33,108 @@ import java.util.List;
             ## Test OTP
             During development use `1234` as OTP for any phone number.
 
-            ## Language Support
-            Set language at signup. Supported: `en`, `ha`, `yo`, `ig`, `pcm`
+            ## Language
+            `en` · `ha` · `yo` · `ig` · `pcm`
+
+            ---
+
+            ## Enum Reference
+
+            ### Role
+            `CUSTOMER` · `DRIVER` · `OPERATOR` · `ADMIN`
+
+            ### Booking — serviceType
+            `STORAGE` · `TRANSPORT` · `PICKUP` · `BUNDLE`
+
+            ### Booking — status
+            `PENDING` · `CONFIRMED` · `IN_PROGRESS` · `COMPLETED` · `CANCELLED`
+
+            ### Booking — paymentStatus
+            `UNPAID` · `PARTIALLY_PAID` · `PAID` · `REFUNDED`
+
+            ### Payment — method
+            `CASH` · `BANK_TRANSFER` · `WALLET` · `CARD`
+
+            ### Payment — status
+            `PENDING` · `CAPTURED` · `FAILED` · `REFUNDED`
+
+            ### Wallet — method
+            `BANK_TRANSFER` · `CARD` · `CASH`
+
+            ### Marketplace — lot status
+            `DRAFT` · `LIVE` · `RESERVED` · `SOLD` · `WITHDRAWN`
+
+            ### Marketplace — order status
+            `PENDING` · `CONFIRMED` · `PACKED` · `IN_TRANSIT` · `DELIVERED` · `COLLECTED` · `CANCELLED`
+
+            ### Marketplace — fulfilmentType
+            `DELIVERY` · `COLLECTION`
+
+            ### Marketplace — paymentPreference
+            `PREPAID` · `PAY_ON_DELIVERY` · `CREDIT`
+
+            ### Support — type
+            `DISPUTE` · `MISSING_CRATE` · `FEE_ISSUE` · `TEMP_CONCERN` · `DRIVER_INCIDENT`
+
+            ### Support — severity
+            `CRITICAL` · `HIGH` · `MEDIUM` · `LOW`
+
+            ### Crate — status
+            `INTAKE` · `IN_STORAGE` · `IN_TRANSIT` · `DELIVERED` · `SOLD` · `LOST`
+
+            ### Hub — status
+            `ACTIVE` · `INACTIVE` · `FULL` · `MAINTENANCE`
+
+            ### Hub — powerType
+            `SOLAR` · `GRID` · `HYBRID` · `GENERATOR`
+
+            ### Hub — powerStatus
+            `ON_GRID` · `ON_SOLAR` · `ON_BATTERY` · `OUTAGE`
+
+            ### Trip — status
+            `PLANNED` · `IN_PROGRESS` · `COMPLETED` · `CANCELLED`
+
+            ### Safety check — result
+            `PASS` · `FAIL` · `PENDING`
+
+            ### Safety check item — mark
+            `ok` · `defect`
+
+            ### Safety check item — severity
+            `CRITICAL` · `MAJOR` · `MINOR`
+
+            ### Driver — vettingStatus
+            `PENDING` · `APPROVED` · `REJECTED` · `SUSPENDED`
+
+            ### Driver — trainingStatus
+            `NOT_STARTED` · `IN_PROGRESS` · `COMPLETED`
+
+            ### Vehicle — status
+            `ACTIVE` · `INACTIVE` · `MAINTENANCE`
+
+            ### Inventory event — eventType
+            `CHECK_IN` · `ZONE_MOVE` · `QUALITY_CHECK` · `CHECKOUT` · `DISPUTE` · `LOSS` · `SALE`
+
+            ### Crate status after inventory event
+            `INTAKE` · `IN_STORAGE` · `IN_TRANSIT` · `DELIVERED` · `SOLD` · `LOST`
+
+            ### Consent — consentStatus
+            `accepted` · `declined`
+
+            ### Customer type — persona
+            `FARMER` · `MARKET_TRADER` · `COOPERATIVE` · `BUYER` · `PROCESSOR`
+
+            ### Partner — partnerType
+            `FUNDER` · `LENDER` · `BUYER` · `HUB_HOST` · `DISTRIBUTOR`
+
+            ### Waitlist — status
+            `WAITING` · `NOTIFIED` · `EXPIRED` · `CANCELLED`
+
+            ### Notification — channel
+            `APP` · `SMS` · `WHATSAPP`
+
+            ### KYB — status
+            `UNVERIFIED` · `PREPAID_ONLY` · `PAY_ON_DELIVERY` · `CREDIT_APPROVED`
             """,
                 contact = @Contact(
                         name  = "Cold Connect Dev",
@@ -55,7 +155,6 @@ import java.util.List;
 )
 public class OpenApiConfig {
 
-        // ── Customer API ──────────────────────────────────────────────────────────
         @Bean
         public GroupedOpenApi customerApi() {
                 return GroupedOpenApi.builder()
@@ -77,16 +176,17 @@ public class OpenApiConfig {
                                 "/v1/trips/**",
                                 "/v1/lots/**",
                                 "/v1/sensor-readings/**",
+                                "/v1/iot/**",
                                 "/v1/support/**",
                                 "/v1/notifications/**",
                                 "/v1/impact/**",
                                 "/v1/events/**",
-                                "/v1/sync/**"
+                                "/v1/sync/**",
+                                "/v1/customer-types/**"
                         )
                         .build();
         }
 
-        // ── Driver API ────────────────────────────────────────────────────────────
         @Bean
         public GroupedOpenApi driverApi() {
                 return GroupedOpenApi.builder()
@@ -96,7 +196,6 @@ public class OpenApiConfig {
                         .build();
         }
 
-        // ── Operator API ──────────────────────────────────────────────────────────
         @Bean
         public GroupedOpenApi operatorApi() {
                 return GroupedOpenApi.builder()
@@ -106,7 +205,6 @@ public class OpenApiConfig {
                         .build();
         }
 
-        // ── Admin API ─────────────────────────────────────────────────────────────
         @Bean
         public GroupedOpenApi adminApi() {
                 return GroupedOpenApi.builder()
@@ -116,22 +214,20 @@ public class OpenApiConfig {
                         .build();
         }
 
-//        // ── Public / Website API ──────────────────────────────────────────────────
-//        @Bean
-//        public GroupedOpenApi publicApi() {
-//                return GroupedOpenApi.builder()
-//                        .group("5-public")
-//                        .displayName("Public & Website API")
-//                        .pathsToMatch(
-//                                "/v1/leads/**",
-//                                "/v1/public/**",
-//                                "/v1/newsletter/**",
-//                                "/web/**"
-//                        )
-//                        .build();
-//        }
+        @Bean
+        public GroupedOpenApi publicApi() {
+                return GroupedOpenApi.builder()
+                        .group("5-public")
+                        .displayName("Public & Website API")
+                        .pathsToMatch(
+                                "/v1/leads/**",
+                                "/v1/public/**",
+                                "/v1/newsletter/**",
+                                "/web/**"
+                        )
+                        .build();
+        }
 
-        // ── All endpoints ─────────────────────────────────────────────────────────
         @Bean
         public GroupedOpenApi allApi() {
                 return GroupedOpenApi.builder()
@@ -141,12 +237,10 @@ public class OpenApiConfig {
                         .build();
         }
 
-        // ── Tag ordering ──────────────────────────────────────────────────────────
         @Bean
         public OpenAPI customOpenApi() {
                 return new OpenAPI()
                         .tags(List.of(
-                                // Customer
                                 new Tag().name("Customer Auth")
                                         .description("Phone OTP signup and login"),
                                 new Tag().name("Profile")
@@ -154,7 +248,7 @@ public class OpenApiConfig {
                                 new Tag().name("Regions")
                                         .description("Region config and feature flags"),
                                 new Tag().name("Hubs")
-                                        .description("Hub search and capacity"),
+                                        .description("Hub search, capacity, temperature and power"),
                                 new Tag().name("Hub Waitlist")
                                         .description("Join waitlist for full hubs"),
                                 new Tag().name("Commodities")
@@ -170,7 +264,7 @@ public class OpenApiConfig {
                                 new Tag().name("Marketplace")
                                         .description("Browse lots, orders and sell crates"),
                                 new Tag().name("Tracking")
-                                        .description("Crate, trip and cold-chain tracking"),
+                                        .description("Crate, trip, IoT and cold-chain tracking"),
                                 new Tag().name("Support")
                                         .description("Support cases"),
                                 new Tag().name("Notifications")
@@ -181,13 +275,12 @@ public class OpenApiConfig {
                                         .description("Analytics and evidence event logging"),
                                 new Tag().name("Offline Sync")
                                         .description("Batch sync for offline-first clients"),
-                                // Driver
+                                new Tag().name("Public")
+                                        .description("Customer types, leads and public impact stats"),
                                 new Tag().name("Driver")
                                         .description("Safety checks and cold chain"),
-                                // Operator
                                 new Tag().name("Operator")
                                         .description("Cold room live monitoring"),
-                                // Admin
                                 new Tag().name("Admin Auth")
                                         .description("Email/password auth for admins"),
                                 new Tag().name("Admin Users")
@@ -216,9 +309,8 @@ public class OpenApiConfig {
                                         .description("DARES evidence export"),
                                 new Tag().name("Admin Settings")
                                         .description("Rate and platform settings"),
-                                // Public
-                                new Tag().name("Public")
-                                        .description("Website lead capture and impact stats")
+                                new Tag().name("Admin Customer Types")
+                                        .description("Customer type management")
                         ));
         }
 }

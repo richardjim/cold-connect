@@ -8,6 +8,7 @@
 /Users/user/Downloads/coldconnect/src/main/java/com/coldconnect/controller/ProfileController.java
 /Users/user/Downloads/coldconnect/src/main/java/com/coldconnect/controller/OtpController.java
 /Users/user/Downloads/coldconnect/src/main/java/com/coldconnect/controller/OperatorController.java
+/Users/user/Downloads/coldconnect/src/main/java/com/coldconnect/controller/AdminCustomerTypeController.java
 /Users/user/Downloads/coldconnect/src/main/java/com/coldconnect/controller/CartController.java
 /Users/user/Downloads/coldconnect/src/main/java/com/coldconnect/service/TrackingService.java
 /Users/user/Downloads/coldconnect/src/main/java/com/coldconnect/controller/AdminInventoryController.java
@@ -28,6 +29,7 @@
 /Users/user/Downloads/coldconnect/src/main/java/com/coldconnect/service/EmailService.java
 /Users/user/Downloads/coldconnect/src/main/java/com/coldconnect/entity/User.java
 /Users/user/Downloads/coldconnect/src/main/java/com/coldconnect/controller/BaseController.java
+/Users/user/Downloads/coldconnect/src/main/java/com/coldconnect/repository/CustomerTypeRepository.java
 /Users/user/Downloads/coldconnect/src/main/java/com/coldconnect/entity/BuyerProfile.java
 /Users/user/Downloads/coldconnect/src/main/java/com/coldconnect/repository/OfflineSyncRepository.java
 /Users/user/Downloads/coldconnect/src/main/java/com/coldconnect/repository/BookingRepository.java
@@ -54,6 +56,7 @@
 /Users/user/Downloads/coldconnect/src/main/java/com/coldconnect/repository/UserRepository.java
 /Users/user/Downloads/coldconnect/src/main/java/com/coldconnect/controller/HubWaitlistController.java
 /Users/user/Downloads/coldconnect/src/main/java/com/coldconnect/entity/ImpactMetric.java
+/Users/user/Downloads/coldconnect/src/main/java/com/coldconnect/entity/CustomerType.java
 /Users/user/Downloads/coldconnect/src/main/java/com/coldconnect/repository/CommodityRepository.java
 /Users/user/Downloads/coldconnect/src/main/java/com/coldconnect/controller/BookingController.java
 /Users/user/Downloads/coldconnect/src/main/java/com/coldconnect/service/ImpactService.java
