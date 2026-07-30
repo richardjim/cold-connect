@@ -16,19 +16,23 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfigurationSource;
 
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
 public class SecurityConfig {
 
-    private final JwtAuthFilter      jwtAuthFilter;
-    private final UserDetailsService userDetailsService;
+    private final JwtAuthFilter           jwtAuthFilter;
+    private final UserDetailsService      userDetailsService;
+    private final CorsConfigurationSource corsConfigurationSource;
 
     public SecurityConfig(JwtAuthFilter jwtAuthFilter,
-                          UserDetailsService userDetailsService) {
-        this.jwtAuthFilter      = jwtAuthFilter;
-        this.userDetailsService = userDetailsService;
+                          UserDetailsService userDetailsService,
+                          CorsConfigurationSource corsConfigurationSource) {
+        this.jwtAuthFilter          = jwtAuthFilter;
+        this.userDetailsService     = userDetailsService;
+        this.corsConfigurationSource = corsConfigurationSource;
     }
 
     private static final String[] SWAGGER_PATHS = {
@@ -37,13 +41,12 @@ public class SecurityConfig {
     };
 
     private static final String[] PUBLIC_PATHS = {
-            // Customer auth
             "/v1/auth/signup",
             "/v1/auth/login",
             "/v1/auth/otp/verify",
             "/v1/auth/otp/request",
             "/v1/auth/otp/call",
-            // Admin auth
+            "/v1/auth/refresh",
             "/api/auth/register",
             "/api/auth/login",
             "/api/auth/verify-email",
@@ -51,45 +54,32 @@ public class SecurityConfig {
             "/api/auth/reset-password",
             "/api/auth/refresh",
             "/api/auth/resend-verification",
-            // Public data
             "/v1/hubs",
             "/v1/hubs/**",
             "/v1/regions/**",
             "/v1/commodities/**",
-            // Website public
             "/v1/leads/**",
             "/v1/public/**",
             "/v1/newsletter/**",
+            "/v1/customer-types/**",
             "/web/pages/**"
     };
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         return http
+                .cors(cors -> cors.configurationSource(corsConfigurationSource))
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(s -> s.sessionCreationPolicy(
                         SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-
-                        // Swagger
                         .requestMatchers(SWAGGER_PATHS).permitAll()
-
-                        // Public endpoints
                         .requestMatchers(PUBLIC_PATHS).permitAll()
-
-                        // Admin only
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
-
-                        // Operator + Admin
                         .requestMatchers("/api/operator/**").hasAnyRole("ADMIN", "OPERATOR")
                         .requestMatchers("/v1/operator/**").hasAnyRole("ADMIN", "OPERATOR")
-
-                        // Driver + above
                         .requestMatchers("/v1/driver/**").hasAnyRole("ADMIN", "OPERATOR", "DRIVER")
-
-                        // All authenticated /v1/**
                         .requestMatchers("/v1/**").authenticated()
-
                         .anyRequest().authenticated()
                 )
                 .authenticationProvider(authenticationProvider())
