@@ -70,7 +70,7 @@ public class BookingService {
                                  String channel, String idempotencyKey,
                                  String pickupAddress, String dropoffAddress,
                                  Integer crateCount, String packagingType,
-                                 String paymentMethod,
+                                 String paymentMethod, String routeType, String loadSize,
                                  boolean operatorCallbackRequested,
                                  String language) {
 
@@ -176,6 +176,8 @@ public class BookingService {
         booking.setCrateCount(crateCount);
         booking.setPackagingType(packagingType);
         booking.setPaymentMethod(paymentMethod);
+        booking.setRouteType(routeType);
+        booking.setLoadSize(loadSize);
         booking.setOperatorCallbackRequested(operatorCallbackRequested);
         booking = bookingRepository.save(booking);
 

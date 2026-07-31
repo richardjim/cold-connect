@@ -92,7 +92,15 @@ public class BookingController extends BaseController {
 
             @Schema(example = "false",
                     description = "Request a callback from the hub operator")
-            Boolean operatorCallbackRequested
+            Boolean operatorCallbackRequested,
+
+            @Schema(example = "FARM_TO_HUB",
+                    description = "FARM_TO_HUB · HUB_TO_MARKET · HUB_TO_BUYER")
+                    String routeType,
+
+            @Schema(example = "6 crates",
+                    description = "6 crates · 12 crates · Half truck · Full truck")
+            String loadSize
     ) {}
 
     public record WeighRequest(
@@ -134,7 +142,7 @@ public class BookingController extends BaseController {
                 req.windowEnd(), "APP", req.idempotencyKey(),
                 req.pickupAddress(), req.dropoffAddress(),
                 req.crateCount(), req.packagingType(),
-                req.paymentMethod(),
+                req.paymentMethod(), req.routeType(), req.loadSize(),
                 req.operatorCallbackRequested() != null
                         && req.operatorCallbackRequested(),
                 lang);

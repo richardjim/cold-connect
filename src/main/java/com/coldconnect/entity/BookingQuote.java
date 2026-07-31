@@ -24,7 +24,25 @@ public class BookingQuote {
     private BigDecimal handlingFee;
     private BigDecimal weightChargeFee;
     private String     paymentMethod;  // CASH_AT_DROP_OFF, BANK_TRANSFER, WALLET
+    private BigDecimal transportKmFee;
+    private BigDecimal coolingSurcharge;
+    private BigDecimal loadingHelpFee;
+    private String     assignedDriverName;
+    private String     assignedVehiclePlate;
+    private Double     driverRating;
 
+    public BigDecimal getTransportKmFee() { return transportKmFee; }
+    public void setTransportKmFee(BigDecimal v) { this.transportKmFee = v; }
+    public BigDecimal getCoolingSurcharge() { return coolingSurcharge; }
+    public void setCoolingSurcharge(BigDecimal v) { this.coolingSurcharge = v; }
+    public BigDecimal getLoadingHelpFee() { return loadingHelpFee; }
+    public void setLoadingHelpFee(BigDecimal v) { this.loadingHelpFee = v; }
+    public String getAssignedDriverName() { return assignedDriverName; }
+    public void setAssignedDriverName(String v) { this.assignedDriverName = v; }
+    public String getAssignedVehiclePlate() { return assignedVehiclePlate; }
+    public void setAssignedVehiclePlate(String v) { this.assignedVehiclePlate = v; }
+    public Double getDriverRating() { return driverRating; }
+    public void setDriverRating(Double driverRating) { this.driverRating = driverRating; }
     public BigDecimal getStorageFee() { return storageFee; }
     public void setStorageFee(BigDecimal storageFee) { this.storageFee = storageFee; }
     public BigDecimal getHandlingFee() { return handlingFee; }
