@@ -7,4 +7,5 @@ import java.util.List;
 public interface ServiceRateRepository extends JpaRepository<ServiceRate, Long> {
     List<ServiceRate> findByRegionAndServiceType(String region, String serviceType);
     List<ServiceRate> findByRegion(String region);
+    List<ServiceRate> findByServiceType(String serviceType);
 }

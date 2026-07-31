@@ -1,6 +1,8 @@
 package com.coldconnect.entity;
 
 import jakarta.persistence.*;
+
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
@@ -30,6 +32,12 @@ public class Booking {
     private String sourceChannel;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private Double     finalWeightKg;
+    private BigDecimal finalTotal;
+    private LocalDateTime weighedAt;
+    private String pickupAddress;
+    private String dropoffAddress;
+
 
     @PrePersist
     protected void onCreate() {
@@ -70,4 +78,15 @@ public class Booking {
     public void setSourceChannel(String sourceChannel) { this.sourceChannel = sourceChannel; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
+    public Double getFinalWeightKg() { return finalWeightKg; }
+    public void setFinalWeightKg(Double finalWeightKg) { this.finalWeightKg = finalWeightKg; }
+    public BigDecimal getFinalTotal() { return finalTotal; }
+    public void setFinalTotal(BigDecimal finalTotal) { this.finalTotal = finalTotal; }
+    public LocalDateTime getWeighedAt() { return weighedAt; }
+    public void setWeighedAt(LocalDateTime weighedAt) { this.weighedAt = weighedAt; }
+    public String getPickupAddress() { return pickupAddress; }
+    public void setPickupAddress(String pickupAddress) { this.pickupAddress = pickupAddress; }
+    public String getDropoffAddress() { return dropoffAddress; }
+    public void setDropoffAddress(String dropoffAddress) { this.dropoffAddress = dropoffAddress; }
+
 }

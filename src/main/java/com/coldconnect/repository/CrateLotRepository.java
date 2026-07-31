@@ -9,4 +9,5 @@ public interface CrateLotRepository extends JpaRepository<CrateLot, Long> {
     List<CrateLot> findByOwnerId(Long ownerId);
     List<CrateLot> findByBookingId(Long bookingId);
     Optional<CrateLot> findByCrateId(String crateId);
+    List<CrateLot> findByOwnerIdAndStatus(Long ownerId, CrateLot.CrateStatus status);
 }

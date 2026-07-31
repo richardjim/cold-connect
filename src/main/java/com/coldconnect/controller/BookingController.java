@@ -6,11 +6,13 @@ import com.coldconnect.i18n.AppMessages;
 import com.coldconnect.repository.UserRepository;
 import com.coldconnect.service.BookingService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -38,14 +40,44 @@ public class BookingController extends BaseController {
     }
 
     public record BookingRequest(
+            @Schema(example = "STORAGE",
+                    description = "STORAGE · TRANSPORT · PICKUP · BUNDLE")
             @NotBlank String serviceType,
-            @NotNull  Long hubId,
+
+            @Schema(example = "1")
+            @NotNull Long hubId,
+
+            @Schema(example = "jos-01")
             @NotBlank String region,
-            @NotNull  Double quantityKg,
-            @NotNull  Integer days,
+
+            @Schema(example = "100.0", description = "Estimated quantity in kg")
+            @NotNull @Positive Double quantityKg,
+
+            @Schema(example = "7", description = "Number of storage days")
+            @NotNull @Positive Integer days,
+
+            @Schema(example = "2026-08-01T08:00:00")
             LocalDateTime windowStart,
+
+            @Schema(example = "2026-08-08T08:00:00")
             LocalDateTime windowEnd,
-            String idempotencyKey
+
+            @Schema(example = "idem-key-uuid-001",
+                    description = "Optional — prevents duplicate bookings from rapid taps")
+            String idempotencyKey,
+
+            @Schema(example = "12 Ahmadu Bello Way, Jos",
+                    description = "Required for TRANSPORT and PICKUP service types")
+            String pickupAddress,
+
+            @Schema(example = "Dawanau Market, Kano")
+            String dropoffAddress
+    ) {}
+
+    public record WeighRequest(
+            @Schema(example = "480.5",
+                    description = "Actual weight confirmed at the scale in kg")
+            @NotNull @Positive Double finalWeightKg
     ) {}
 
     @Operation(summary = "Get my bookings")
@@ -58,7 +90,11 @@ public class BookingController extends BaseController {
 
     @Operation(
             summary = "Create a booking",
-            description = "Provide idempotencyKey to prevent duplicate bookings from rapid taps"
+            description = """
+            Provide idempotencyKey to prevent duplicate bookings from rapid taps.
+            pickupAddress and dropoffAddress required for TRANSPORT and PICKUP types.
+            Final price is confirmed after weighing via PATCH /{bookingId}/weigh.
+            """
     )
     @PostMapping
     public ResponseEntity<Map<String, Object>> createBooking(
@@ -69,7 +105,8 @@ public class BookingController extends BaseController {
         Booking booking = bookingService.createBooking(
                 userId, req.serviceType(), req.hubId(), req.region(),
                 req.quantityKg(), req.days(), req.windowStart(),
-                req.windowEnd(), "APP", req.idempotencyKey(), lang);
+                req.windowEnd(), "APP", req.idempotencyKey(),
+                req.pickupAddress(), req.dropoffAddress(), lang);
         return ResponseEntity.ok(Map.of(
                 "message", messages.get(AppMessages.Key.BOOKING_CREATED, lang),
                 "booking", booking
@@ -99,7 +136,7 @@ public class BookingController extends BaseController {
     public ResponseEntity<Map<String, Object>> confirmBooking(
             @AuthenticationPrincipal UserDetails userDetails,
             @PathVariable String bookingId) {
-        String lang    = resolveLanguage(userDetails);
+        String lang     = resolveLanguage(userDetails);
         Booking booking = bookingService.confirmBooking(bookingId, lang);
         return ResponseEntity.ok(Map.of(
                 "message", messages.get(AppMessages.Key.BOOKING_CONFIRMED, lang),
@@ -118,6 +155,32 @@ public class BookingController extends BaseController {
         return ResponseEntity.ok(Map.of(
                 "message", messages.get(AppMessages.Key.BOOKING_CANCELLED, lang),
                 "booking", booking
+        ));
+    }
+
+    @Operation(
+            summary = "Record final weight after weighing at hub",
+            description = """
+            Called after produce is weighed at the hub scale.
+            Recalculates final total based on actual weight.
+            Booking must be CONFIRMED or IN_PROGRESS.
+            """
+    )
+    @PatchMapping("/{bookingId}/weigh")
+    public ResponseEntity<Map<String, Object>> weighBooking(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable String bookingId,
+            @Valid @RequestBody WeighRequest req) {
+        String lang    = resolveLanguage(userDetails);
+        Long   userId  = resolveUser(userDetails).getId();
+        Booking booking = bookingService.weighBooking(
+                bookingId, req.finalWeightKg(), userId, lang);
+        return ResponseEntity.ok(Map.of(
+                "message",       "Final weight recorded. Price updated.",
+                "bookingId",     booking.getBookingId(),
+                "finalWeightKg", booking.getFinalWeightKg(),
+                "finalTotal",    booking.getFinalTotal(),
+                "weighedAt",     booking.getWeighedAt()
         ));
     }
 }

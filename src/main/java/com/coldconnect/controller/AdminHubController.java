@@ -111,4 +111,51 @@ public class AdminHubController extends BaseController {
                 "currentLoadKg", hub.getCurrentLoadKg()
         ));
     }
+
+    @Operation(
+            summary = "Get hub energy and solar stats",
+            description = "Solar kWh generated, battery level, grid usage and PUE"
+    )
+    @GetMapping("/{hubId}/energy")
+    public ResponseEntity<Map<String, Object>> getHubEnergy(
+            @PathVariable Long hubId) {
+
+        Hub hub = hubRepository.findById(hubId)
+                .orElseThrow(() -> new AppException.NotFoundException(
+                        "Hub not found: " + hubId));
+
+        // Calculate utilization
+        double capacity    = hub.getCapacityKg() != null ? hub.getCapacityKg() : 0;
+        double currentLoad = hub.getCurrentLoadKg() != null ? hub.getCurrentLoadKg() : 0;
+        double utilPct     = capacity > 0 ? (currentLoad / capacity) * 100 : 0;
+
+        // Estimate solar kWh based on capacity and solar panel size
+        double solarKw     = hub.getSolarCapacityKw() != null ? hub.getSolarCapacityKw() : 0;
+        double batteryKwh  = hub.getBatteryCapacityKwh() != null ? hub.getBatteryCapacityKwh() : 0;
+
+        // PUE = total energy / IT energy (cooling load proxy)
+        // Estimate: 1.3 is good, 2.0 is poor for cold storage
+        double pueEstimate = utilPct > 0 ? 1.3 + (1 - utilPct / 100) * 0.5 : 2.0;
+
+        Map<String, Object> response = new java.util.HashMap<>();
+        response.put("hubId",              hub.getHubId());
+        response.put("name",               hub.getName());
+        response.put("powerType",          hub.getPowerType());
+        response.put("powerStatus",        hub.getPowerStatus());
+        response.put("solarCapacityKw",    solarKw);
+        response.put("batteryCapacityKwh", batteryKwh);
+        response.put("utilizationPct",     Math.round(utilPct));
+        response.put("pueEstimate",        Math.round(pueEstimate * 100.0) / 100.0);
+        response.put("pueRating",          pueEstimate <= 1.4 ? "EXCELLENT"
+                : pueEstimate <= 1.6 ? "GOOD"
+                : pueEstimate <= 1.8 ? "AVERAGE" : "POOR");
+        response.put("tempCurrentC",       hub.getTempCurrentC());
+        response.put("tempTargetMin",      hub.getTempTargetMin());
+        response.put("tempTargetMax",      hub.getTempTargetMax());
+        response.put("solarShareEstimatePct",
+                hub.getPowerType() != null && hub.getPowerType().equals("SOLAR") ? 100
+                        : hub.getPowerType() != null && hub.getPowerType().equals("HYBRID") ? 60 : 0);
+
+        return ResponseEntity.ok(response);
+    }
 }

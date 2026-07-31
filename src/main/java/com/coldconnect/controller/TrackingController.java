@@ -129,4 +129,24 @@ public class TrackingController extends BaseController {
                 "alertCount", alertCount
         ));
     }
+
+    @Operation(
+            summary = "Get my crates eligible for sale",
+            description = """
+        Returns crates owned by the user that are currently IN_STORAGE
+        and can be listed on the marketplace.
+        Use the crateId from this response when posting to POST /v1/marketplace/lots.
+        """
+    )
+    @GetMapping("/v1/sell/crates")
+    public ResponseEntity<Map<String, Object>> getEligibleCratesForSale(
+            @AuthenticationPrincipal UserDetails userDetails) {
+        Long userId = resolveUser(userDetails).getId();
+        var crates  = trackingService.getEligibleCratesForSale(userId);
+        return ResponseEntity.ok(Map.of(
+                "crates", crates,
+                "count",  crates.size(),
+                "hint",   "Use crateId when listing on POST /v1/marketplace/lots"
+        ));
+    }
 }

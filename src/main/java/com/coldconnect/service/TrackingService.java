@@ -10,36 +10,43 @@ import java.util.List;
 @Service
 public class TrackingService {
 
-    private final CrateLotRepository crateRepository;
-    private final TripRepository tripRepository;
-    private final TripStopRepository tripStopRepository;
+    private final CrateLotRepository      crateRepository;
+    private final TripRepository          tripRepository;
+    private final TripStopRepository      tripStopRepository;
     private final SensorReadingRepository sensorRepository;
-    private final ChainEventRepository chainRepository;
+    private final ChainEventRepository    chainRepository;
 
     public TrackingService(CrateLotRepository crateRepository,
-                            TripRepository tripRepository,
-                            TripStopRepository tripStopRepository,
-                            SensorReadingRepository sensorRepository,
-                            ChainEventRepository chainRepository) {
-        this.crateRepository = crateRepository;
-        this.tripRepository = tripRepository;
+                           TripRepository tripRepository,
+                           TripStopRepository tripStopRepository,
+                           SensorReadingRepository sensorRepository,
+                           ChainEventRepository chainRepository) {
+        this.crateRepository    = crateRepository;
+        this.tripRepository     = tripRepository;
         this.tripStopRepository = tripStopRepository;
-        this.sensorRepository = sensorRepository;
-        this.chainRepository = chainRepository;
+        this.sensorRepository   = sensorRepository;
+        this.chainRepository    = chainRepository;
     }
 
     public CrateLot getCrate(String crateId) {
         return crateRepository.findByCrateId(crateId)
-                .orElseThrow(() -> new AppException.NotFoundException("Crate not found: " + crateId));
+                .orElseThrow(() -> new AppException.NotFoundException(
+                        "Crate not found: " + crateId));
     }
 
     public List<CrateLot> getCustomerCrates(Long ownerId) {
         return crateRepository.findByOwnerId(ownerId);
     }
 
+    public List<CrateLot> getEligibleCratesForSale(Long userId) {
+        return crateRepository.findByOwnerIdAndStatus(
+                userId, CrateLot.CrateStatus.IN_STORAGE);
+    }
+
     public Trip getTrip(String tripId) {
         return tripRepository.findByTripId(tripId)
-                .orElseThrow(() -> new AppException.NotFoundException("Trip not found: " + tripId));
+                .orElseThrow(() -> new AppException.NotFoundException(
+                        "Trip not found: " + tripId));
     }
 
     public List<TripStop> getTripStops(String tripId) {

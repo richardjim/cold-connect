@@ -21,11 +21,27 @@ public class SupportCase {
     private Long ownerId;
     private String status;
     private String resolution;
+    private String message;
+    private String photoUri;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
     @PrePersist
-    protected void onCreate() { createdAt = LocalDateTime.now(); updatedAt = LocalDateTime.now(); }
+    protected void onCreate() {
+        createdAt = LocalDateTime.now();
+        updatedAt = LocalDateTime.now();
+        if (status == null) status = "OPEN";
+        if (severity == null) severity = "MEDIUM";
+        // Auto-set SLA based on severity
+        if (sla == null) {
+            sla = switch (severity) {
+                case "CRITICAL" -> "2h";
+                case "HIGH"     -> "4h";
+                case "LOW"      -> "72h";
+                default          -> "24h";
+            };
+        }
+    }
 
     @PreUpdate
     protected void onUpdate() { updatedAt = LocalDateTime.now(); }
@@ -52,6 +68,10 @@ public class SupportCase {
     public void setStatus(String status) { this.status = status; }
     public String getResolution() { return resolution; }
     public void setResolution(String resolution) { this.resolution = resolution; }
+    public String getMessage() { return message; }
+    public void setMessage(String message) { this.message = message; }
+    public String getPhotoUri() { return photoUri; }
+    public void setPhotoUri(String photoUri) { this.photoUri = photoUri; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
 }

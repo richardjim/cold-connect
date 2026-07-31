@@ -55,11 +55,9 @@ public class BookingService {
     }
 
     public Booking getBooking(String bookingId, String language) {
-        // Input validation
         if (bookingId == null || bookingId.isBlank()) {
             throw new AppException.BadRequestException("Booking ID is required");
         }
-        // DB validation
         return bookingRepository.findByBookingId(bookingId)
                 .orElseThrow(() -> new AppException.NotFoundException(
                         messages.get(AppMessages.Key.BOOKING_NOT_FOUND, language)));
@@ -69,10 +67,11 @@ public class BookingService {
     public Booking createBooking(Long customerId, String serviceType, Long hubId,
                                  String region, Double quantityKg, Integer days,
                                  LocalDateTime windowStart, LocalDateTime windowEnd,
-                                 String channel, String idempotencyKey, String language) {
+                                 String channel, String idempotencyKey,
+                                 String pickupAddress, String dropoffAddress,
+                                 String language) {
 
         // ── Input validation ──────────────────────────────────────────────────
-
         if (serviceType == null || serviceType.isBlank()) {
             throw new AppException.BadRequestException("Service type is required");
         }
@@ -109,8 +108,6 @@ public class BookingService {
         }
 
         // ── DB validation ─────────────────────────────────────────────────────
-
-        // Validate hub exists and is active
         var hub = hubRepository.findById(hubId)
                 .orElseThrow(() -> new AppException.NotFoundException(
                         messages.get(AppMessages.Key.HUB_NOT_FOUND, language)));
@@ -120,19 +117,17 @@ public class BookingService {
                     "Hub is not currently accepting bookings. Status: " + hub.getStatus());
         }
 
-        // Validate hub has enough capacity
         double available = hub.getCapacityKg() - hub.getCurrentLoadKg();
         if (quantityKg > available) {
             throw new AppException.BadRequestException(
                     "Insufficient hub capacity. Available: " + available + "kg");
         }
 
-        // Validate region exists
         regionRepository.findByRegionId(region)
                 .orElseThrow(() -> new AppException.NotFoundException(
                         "Region not found: " + region));
 
-
+        // ── Duplicate prevention ──────────────────────────────────────────────
         if (idempotencyKey != null && !idempotencyKey.isBlank()) {
             var existing = idempotencyRepository.findByIdempotencyKey(idempotencyKey);
             if (existing.isPresent()) {
@@ -143,7 +138,6 @@ public class BookingService {
         }
 
         // ── Calculate quote ───────────────────────────────────────────────────
-
         List<ServiceRate> rates = rateRepository.findByRegionAndServiceType(
                 region, serviceType.toUpperCase());
 
@@ -158,6 +152,7 @@ public class BookingService {
                 .add(rate.getStorageDayFee().multiply(BigDecimal.valueOf(days)))
                 .multiply(BigDecimal.valueOf(quantityKg / 100));
 
+        // ── Create booking ────────────────────────────────────────────────────
         Booking booking = new Booking();
         booking.setCustomerId(customerId);
         booking.setServiceType(serviceType.toUpperCase());
@@ -167,6 +162,8 @@ public class BookingService {
         booking.setScheduledWindowEnd(windowEnd);
         booking.setPaymentStatus(Booking.PaymentStatus.UNPAID);
         booking.setSourceChannel(channel);
+        booking.setPickupAddress(pickupAddress);
+        booking.setDropoffAddress(dropoffAddress);
         booking = bookingRepository.save(booking);
 
         BookingQuote quote = new BookingQuote();
@@ -194,12 +191,10 @@ public class BookingService {
         Booking booking = getBooking(bookingId, language);
 
         if (booking.getStatus() == Booking.BookingStatus.CANCELLED) {
-            throw new AppException.BadRequestException(
-                    "Cannot confirm a cancelled booking");
+            throw new AppException.BadRequestException("Cannot confirm a cancelled booking");
         }
         if (booking.getStatus() == Booking.BookingStatus.COMPLETED) {
-            throw new AppException.BadRequestException(
-                    "Booking is already completed");
+            throw new AppException.BadRequestException("Booking is already completed");
         }
         if (booking.getStatus() != Booking.BookingStatus.PENDING) {
             throw new AppException.BadRequestException(
@@ -214,15 +209,11 @@ public class BookingService {
     public Booking cancelBooking(String bookingId, Long userId, String language) {
         Booking booking = getBooking(bookingId, language);
 
-        // Ownership check
         if (!booking.getCustomerId().equals(userId)) {
             throw new AppException.UnauthorizedException("Not your booking");
         }
-
-        // Status check
         if (booking.getStatus() == Booking.BookingStatus.COMPLETED) {
-            throw new AppException.BadRequestException(
-                    "Cannot cancel a completed booking");
+            throw new AppException.BadRequestException("Cannot cancel a completed booking");
         }
         if (booking.getStatus() == Booking.BookingStatus.CANCELLED) {
             throw new AppException.BadRequestException(
@@ -234,6 +225,46 @@ public class BookingService {
         }
 
         booking.setStatus(Booking.BookingStatus.CANCELLED);
+        return bookingRepository.save(booking);
+    }
+
+    @Transactional
+    public Booking weighBooking(String bookingId, Double finalWeightKg,
+                                Long userId, String language) {
+        Booking booking = getBooking(bookingId, language);
+
+        if (!booking.getCustomerId().equals(userId)) {
+            throw new AppException.UnauthorizedException("Not your booking");
+        }
+        if (booking.getStatus() != Booking.BookingStatus.CONFIRMED
+                && booking.getStatus() != Booking.BookingStatus.IN_PROGRESS) {
+            throw new AppException.BadRequestException(
+                    "Booking must be CONFIRMED or IN_PROGRESS to record weight");
+        }
+        if (finalWeightKg <= 0) {
+            throw new AppException.BadRequestException(
+                    "Final weight must be greater than zero");
+        }
+
+        BookingQuote quote = quoteRepository.findByBookingId(booking.getId())
+                .orElseThrow(() -> new AppException.NotFoundException("Quote not found"));
+
+        List<ServiceRate> rates = rateRepository
+                .findByServiceType(booking.getServiceType());
+
+        BigDecimal finalTotal = BigDecimal.ZERO;
+        if (!rates.isEmpty()) {
+            ServiceRate rate = rates.get(0);
+            finalTotal = rate.getBaseFee()
+                    .add(rate.getStorageDayFee()
+                            .multiply(BigDecimal.valueOf(quote.getDays())))
+                    .multiply(BigDecimal.valueOf(finalWeightKg / 100));
+        }
+
+        booking.setFinalWeightKg(finalWeightKg);
+        booking.setFinalTotal(finalTotal);
+        booking.setWeighedAt(LocalDateTime.now());
+
         return bookingRepository.save(booking);
     }
 
