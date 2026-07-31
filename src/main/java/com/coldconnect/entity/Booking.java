@@ -1,7 +1,6 @@
 package com.coldconnect.entity;
 
 import jakarta.persistence.*;
-
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
@@ -13,31 +12,37 @@ public class Booking {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private String bookingId;
-    private Long customerId;
-    private Long orgId;
-    private String serviceType;
-    private Long hubId;
+    private String        bookingId;
+    private Long          customerId;
+    private Long          orgId;
+    private String        serviceType;
+    private Long          hubId;
+    private String        pickupAddress;
+    private String        dropoffAddress;
+    private Integer       crateCount;
+    private String        packagingType;
+    private String        paymentMethod;
+    private boolean       operatorCallbackRequested;
 
     @Enumerated(EnumType.STRING)
     private BookingStatus status;
 
     private LocalDateTime scheduledWindowStart;
     private LocalDateTime scheduledWindowEnd;
-    private Long quoteId;
+    private Long          quoteId;
 
     @Enumerated(EnumType.STRING)
     private PaymentStatus paymentStatus;
 
-    private String sourceChannel;
+    private String        sourceChannel;
+
+    // Weigh-after fields
+    private Double        finalWeightKg;
+    private BigDecimal    finalTotal;
+    private LocalDateTime weighedAt;
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
-    private Double     finalWeightKg;
-    private BigDecimal finalTotal;
-    private LocalDateTime weighedAt;
-    private String pickupAddress;
-    private String dropoffAddress;
-
 
     @PrePersist
     protected void onCreate() {
@@ -64,29 +69,36 @@ public class Booking {
     public void setServiceType(String serviceType) { this.serviceType = serviceType; }
     public Long getHubId() { return hubId; }
     public void setHubId(Long hubId) { this.hubId = hubId; }
+    public String getPickupAddress() { return pickupAddress; }
+    public void setPickupAddress(String pickupAddress) { this.pickupAddress = pickupAddress; }
+    public String getDropoffAddress() { return dropoffAddress; }
+    public void setDropoffAddress(String dropoffAddress) { this.dropoffAddress = dropoffAddress; }
+    public Integer getCrateCount() { return crateCount; }
+    public void setCrateCount(Integer crateCount) { this.crateCount = crateCount; }
+    public String getPackagingType() { return packagingType; }
+    public void setPackagingType(String packagingType) { this.packagingType = packagingType; }
+    public String getPaymentMethod() { return paymentMethod; }
+    public void setPaymentMethod(String paymentMethod) { this.paymentMethod = paymentMethod; }
+    public boolean isOperatorCallbackRequested() { return operatorCallbackRequested; }
+    public void setOperatorCallbackRequested(boolean v) { this.operatorCallbackRequested = v; }
     public BookingStatus getStatus() { return status; }
     public void setStatus(BookingStatus status) { this.status = status; }
     public LocalDateTime getScheduledWindowStart() { return scheduledWindowStart; }
-    public void setScheduledWindowStart(LocalDateTime scheduledWindowStart) { this.scheduledWindowStart = scheduledWindowStart; }
+    public void setScheduledWindowStart(LocalDateTime v) { this.scheduledWindowStart = v; }
     public LocalDateTime getScheduledWindowEnd() { return scheduledWindowEnd; }
-    public void setScheduledWindowEnd(LocalDateTime scheduledWindowEnd) { this.scheduledWindowEnd = scheduledWindowEnd; }
+    public void setScheduledWindowEnd(LocalDateTime v) { this.scheduledWindowEnd = v; }
     public Long getQuoteId() { return quoteId; }
     public void setQuoteId(Long quoteId) { this.quoteId = quoteId; }
     public PaymentStatus getPaymentStatus() { return paymentStatus; }
     public void setPaymentStatus(PaymentStatus paymentStatus) { this.paymentStatus = paymentStatus; }
     public String getSourceChannel() { return sourceChannel; }
     public void setSourceChannel(String sourceChannel) { this.sourceChannel = sourceChannel; }
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public LocalDateTime getUpdatedAt() { return updatedAt; }
     public Double getFinalWeightKg() { return finalWeightKg; }
     public void setFinalWeightKg(Double finalWeightKg) { this.finalWeightKg = finalWeightKg; }
     public BigDecimal getFinalTotal() { return finalTotal; }
     public void setFinalTotal(BigDecimal finalTotal) { this.finalTotal = finalTotal; }
     public LocalDateTime getWeighedAt() { return weighedAt; }
     public void setWeighedAt(LocalDateTime weighedAt) { this.weighedAt = weighedAt; }
-    public String getPickupAddress() { return pickupAddress; }
-    public void setPickupAddress(String pickupAddress) { this.pickupAddress = pickupAddress; }
-    public String getDropoffAddress() { return dropoffAddress; }
-    public void setDropoffAddress(String dropoffAddress) { this.dropoffAddress = dropoffAddress; }
-
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
 }

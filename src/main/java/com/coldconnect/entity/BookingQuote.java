@@ -20,6 +20,19 @@ public class BookingQuote {
     private BigDecimal total;
     private LocalDateTime expiry;
     private String assumptions;
+    private BigDecimal storageFee;
+    private BigDecimal handlingFee;
+    private BigDecimal weightChargeFee;
+    private String     paymentMethod;  // CASH_AT_DROP_OFF, BANK_TRANSFER, WALLET
+
+    public BigDecimal getStorageFee() { return storageFee; }
+    public void setStorageFee(BigDecimal storageFee) { this.storageFee = storageFee; }
+    public BigDecimal getHandlingFee() { return handlingFee; }
+    public void setHandlingFee(BigDecimal handlingFee) { this.handlingFee = handlingFee; }
+    public BigDecimal getWeightChargeFee() { return weightChargeFee; }
+    public void setWeightChargeFee(BigDecimal weightChargeFee) { this.weightChargeFee = weightChargeFee; }
+    public String getPaymentMethod() { return paymentMethod; }
+    public void setPaymentMethod(String paymentMethod) { this.paymentMethod = paymentMethod; }
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }

@@ -69,6 +69,9 @@ public class BookingService {
                                  LocalDateTime windowStart, LocalDateTime windowEnd,
                                  String channel, String idempotencyKey,
                                  String pickupAddress, String dropoffAddress,
+                                 Integer crateCount, String packagingType,
+                                 String paymentMethod,
+                                 boolean operatorCallbackRequested,
                                  String language) {
 
         // ── Input validation ──────────────────────────────────────────────────
@@ -137,7 +140,7 @@ public class BookingService {
             }
         }
 
-        // ── Calculate quote ───────────────────────────────────────────────────
+        // ── Calculate quote with fee breakdown ────────────────────────────────
         List<ServiceRate> rates = rateRepository.findByRegionAndServiceType(
                 region, serviceType.toUpperCase());
 
@@ -147,10 +150,16 @@ public class BookingService {
                             + "' and service type '" + serviceType + "'. Contact admin.");
         }
 
-        ServiceRate rate = rates.get(0);
-        BigDecimal total = rate.getBaseFee()
-                .add(rate.getStorageDayFee().multiply(BigDecimal.valueOf(days)))
+        ServiceRate rate   = rates.get(0);
+        int         crates = crateCount != null ? crateCount : 1;
+
+        BigDecimal storageFee      = rate.getBaseFee()
+                .multiply(BigDecimal.valueOf(days));
+        BigDecimal handlingFee     = rate.getStorageDayFee()
+                .multiply(BigDecimal.valueOf(crates));
+        BigDecimal weightChargeFee = rate.getBaseFee()
                 .multiply(BigDecimal.valueOf(quantityKg / 100));
+        BigDecimal total           = storageFee.add(handlingFee).add(weightChargeFee);
 
         // ── Create booking ────────────────────────────────────────────────────
         Booking booking = new Booking();
@@ -164,12 +173,20 @@ public class BookingService {
         booking.setSourceChannel(channel);
         booking.setPickupAddress(pickupAddress);
         booking.setDropoffAddress(dropoffAddress);
+        booking.setCrateCount(crateCount);
+        booking.setPackagingType(packagingType);
+        booking.setPaymentMethod(paymentMethod);
+        booking.setOperatorCallbackRequested(operatorCallbackRequested);
         booking = bookingRepository.save(booking);
 
+        // ── Save quote with breakdown ─────────────────────────────────────────
         BookingQuote quote = new BookingQuote();
         quote.setBookingId(booking.getId());
         quote.setQuantityEstimateKg(quantityKg);
         quote.setDays(days);
+        quote.setStorageFee(storageFee);
+        quote.setHandlingFee(handlingFee);
+        quote.setWeightChargeFee(weightChargeFee);
         quote.setTotal(total);
         quote.setExpiry(LocalDateTime.now().plusHours(24));
         quote.setAssumptions("Rate version: v1");
@@ -249,8 +266,8 @@ public class BookingService {
         BookingQuote quote = quoteRepository.findByBookingId(booking.getId())
                 .orElseThrow(() -> new AppException.NotFoundException("Quote not found"));
 
-        List<ServiceRate> rates = rateRepository
-                .findByServiceType(booking.getServiceType());
+        List<ServiceRate> rates = rateRepository.findByServiceType(
+                booking.getServiceType());
 
         BigDecimal finalTotal = BigDecimal.ZERO;
         if (!rates.isEmpty()) {
@@ -264,7 +281,6 @@ public class BookingService {
         booking.setFinalWeightKg(finalWeightKg);
         booking.setFinalTotal(finalTotal);
         booking.setWeighedAt(LocalDateTime.now());
-
         return bookingRepository.save(booking);
     }
 

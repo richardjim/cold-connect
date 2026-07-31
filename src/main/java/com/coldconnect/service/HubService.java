@@ -12,11 +12,12 @@ import java.util.List;
 @Service
 public class HubService {
 
-    private final HubRepository hubRepository;
+    private final HubRepository     hubRepository;
     private final HubZoneRepository hubZoneRepository;
 
-    public HubService(HubRepository hubRepository, HubZoneRepository hubZoneRepository) {
-        this.hubRepository = hubRepository;
+    public HubService(HubRepository hubRepository,
+                      HubZoneRepository hubZoneRepository) {
+        this.hubRepository     = hubRepository;
         this.hubZoneRepository = hubZoneRepository;
     }
 
@@ -28,13 +29,12 @@ public class HubService {
 
     public Hub getHub(Long hubId) {
         return hubRepository.findById(hubId)
-                .orElseThrow(() -> new AppException.NotFoundException("Hub not found"));
+                .orElseThrow(() -> new AppException.NotFoundException(
+                        "Hub not found: " + hubId));
     }
 
     public CapacitySnapshot getCapacity(Long hubId) {
-        Hub hub = getHub(hubId);
-        double available = hub.getCapacityKg() - hub.getCurrentLoadKg();
-        return new CapacitySnapshot(hub.getCapacityKg(), hub.getCurrentLoadKg(), available, false);
+        return new CapacitySnapshot(getHub(hubId));
     }
 
     public List<HubZone> getZones(Long hubId) {
@@ -42,18 +42,21 @@ public class HubService {
     }
 
     public static class CapacitySnapshot {
-        public final Double capacityKg;
-        public final Double currentLoadKg;
-        public final Double availableKg;
+        public final double  capacityKg;
+        public final double  currentLoadKg;
+        public final double  availableKg;
+        public final int     utilizationPct;
+        public final String  status;
         public final boolean stale;
 
-        public CapacitySnapshot(Double capacityKg, Double currentLoadKg, Double availableKg, boolean stale) {
-            this.capacityKg = capacityKg;
-            this.currentLoadKg = currentLoadKg;
-            this.availableKg = availableKg;
-            this.stale = stale;
+        public CapacitySnapshot(Hub hub) {
+            this.capacityKg    = hub.getCapacityKg() != null ? hub.getCapacityKg() : 0;
+            this.currentLoadKg = hub.getCurrentLoadKg() != null ? hub.getCurrentLoadKg() : 0;
+            this.availableKg   = this.capacityKg - this.currentLoadKg;
+            this.utilizationPct = this.capacityKg > 0
+                    ? (int) Math.round((this.currentLoadKg / this.capacityKg) * 100) : 0;
+            this.status        = hub.getStatus() != null ? hub.getStatus().name() : "UNKNOWN";
+            this.stale         = false;
         }
     }
-
-
 }
