@@ -100,7 +100,11 @@ public class BookingController extends BaseController {
 
             @Schema(example = "6 crates",
                     description = "6 crates · 12 crates · Half truck · Full truck")
-            String loadSize
+            String loadSize,
+
+            @Schema(example = "COM-001",
+                    description = "Commodity ID from GET /v1/commodities")
+            String commodityId
     ) {}
 
     public record WeighRequest(
@@ -143,6 +147,7 @@ public class BookingController extends BaseController {
                 req.pickupAddress(), req.dropoffAddress(),
                 req.crateCount(), req.packagingType(),
                 req.paymentMethod(), req.routeType(), req.loadSize(),
+                req.commodityId(),
                 req.operatorCallbackRequested() != null
                         && req.operatorCallbackRequested(),
                 lang);

@@ -70,7 +70,8 @@ public class BookingService {
                                  String channel, String idempotencyKey,
                                  String pickupAddress, String dropoffAddress,
                                  Integer crateCount, String packagingType,
-                                 String paymentMethod, String routeType, String loadSize,
+                                 String paymentMethod, String routeType,
+                                 String loadSize, String commodityId,
                                  boolean operatorCallbackRequested,
                                  String language) {
 
@@ -166,6 +167,7 @@ public class BookingService {
         booking.setCustomerId(customerId);
         booking.setServiceType(serviceType.toUpperCase());
         booking.setHubId(hubId);
+        booking.setCommodityId(commodityId);
         booking.setStatus(Booking.BookingStatus.PENDING);
         booking.setScheduledWindowStart(windowStart);
         booking.setScheduledWindowEnd(windowEnd);

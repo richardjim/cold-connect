@@ -45,6 +45,7 @@ public class Booking {
     private LocalDateTime updatedAt;
     private String routeType; // FARM_TO_HUB, HUB_TO_MARKET, HUB_TO_BUYER
     private String loadSize;
+    private String commodityId;
 
     @PrePersist
     protected void onCreate() {
@@ -107,5 +108,6 @@ public class Booking {
     public void setRouteType(String routeType) { this.routeType = routeType; }
     public String getLoadSize() { return loadSize; }
     public void setLoadSize(String loadSize) { this.loadSize = loadSize; }
-
+    public String getCommodityId() { return commodityId; }
+    public void setCommodityId(String commodityId) { this.commodityId = commodityId; }
 }
