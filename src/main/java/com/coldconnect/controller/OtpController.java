@@ -276,23 +276,24 @@ public class OtpController extends BaseController {
         rateLimitService.checkApiLimit(getIp(http));
 
         try {
-            String phone = jwtUtil.extractUsername(req.refreshToken());
+            String username = jwtUtil.extractUsername(req.refreshToken());
 
-            if (phone == null) {
-                throw new AppException.UnauthorizedException(
-                        "Invalid refresh token");
+            if (username == null || username.isBlank()) {
+                throw new AppException.UnauthorizedException("Invalid refresh token");
             }
 
-            User user = userRepository.findByPhone(phone)
-                    .orElseThrow(() -> new AppException.UnauthorizedException(
-                            "User not found"));
+            // Try phone first, then email
+            var userOpt = userRepository.findByPhone(username)
+                    .or(() -> userRepository.findByEmail(username));
+
+            var user = userOpt.orElseThrow(() ->
+                    new AppException.UnauthorizedException(
+                            "User not found for token"));
 
             if (!user.isEnabled()) {
-                throw new AppException.UnauthorizedException(
-                        "Account is disabled");
+                throw new AppException.UnauthorizedException("Account is disabled");
             }
 
-            // Validate the token is still good
             if (!jwtUtil.isTokenValid(req.refreshToken(), user)) {
                 throw new AppException.UnauthorizedException(
                         "Refresh token expired. Please log in again.");
@@ -303,7 +304,8 @@ public class OtpController extends BaseController {
                     "refreshToken", jwtUtil.generateRefreshToken(user),
                     "tokenType",    "Bearer",
                     "userId",       user.getId(),
-                    "role",         user.getRole().name()
+                    "role",         user.getRole().name(),
+                    "language",     user.getLanguage() != null ? user.getLanguage() : "en"
             ));
 
         } catch (AppException.UnauthorizedException e) {
