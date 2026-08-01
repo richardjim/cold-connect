@@ -68,7 +68,13 @@ public class ProfileController extends BaseController {
             Long customerTypeId,
 
             @Schema(example = "optional-org-id")
-            String organizationId
+            String organizationId,
+
+            @Schema(example = "FEMALE", description = "MALE · FEMALE · OTHER · PREFER_NOT_TO_SAY")
+            String gender,
+
+            @Schema(example = "true")
+            Boolean youth
     ) {}
 
     @Schema(description = "Profile response — sensitive fields excluded")
@@ -113,6 +119,7 @@ public class ProfileController extends BaseController {
                 req.persona(),
                 req.customerTypeId(),
                 req.organizationId()
+
         );
         return ResponseEntity.ok(Map.of(
                 "message", messages.get(AppMessages.Key.PROFILE_UPDATED, lang),

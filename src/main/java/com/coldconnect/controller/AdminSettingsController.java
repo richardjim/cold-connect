@@ -5,6 +5,7 @@ import com.coldconnect.exception.AppException;
 import com.coldconnect.repository.ServiceRateRepository;
 import com.coldconnect.repository.UserRepository;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.NotBlank;
@@ -97,6 +98,40 @@ public class AdminSettingsController extends BaseController {
                 "effectiveDate",  req.effectiveDate(),
                 "changeReason",   req.changeReason() != null ? req.changeReason() : "",
                 "updatedRate",    rate
+        ));
+    }
+
+    public record LanguageToggleRequest(
+            @Schema(example = "ha", description = "en · ha · yo · ig · pcm")
+            @NotBlank String language,
+            boolean active
+    ) {}
+
+    @Operation(summary = "Get active languages")
+    @GetMapping("/languages")
+    public ResponseEntity<Map<String, Object>> getLanguages() {
+        return ResponseEntity.ok(Map.of(
+                "activeLanguages", List.of(
+                        Map.of("code", "en",  "name", "English",         "active", true),
+                        Map.of("code", "pcm", "name", "Nigerian Pidgin",  "active", true),
+                        Map.of("code", "ha",  "name", "Hausa",            "active", true),
+                        Map.of("code", "yo",  "name", "Yoruba",           "active", true),
+                        Map.of("code", "ig",  "name", "Igbo",             "active", true)
+                )
+        ));
+    }
+
+    @Operation(summary = "Toggle a language on or off")
+    @PatchMapping("/languages")
+    public ResponseEntity<Map<String, String>> toggleLanguage(
+            @RequestBody LanguageToggleRequest req) {
+        // In production this would persist to a settings table
+        return ResponseEntity.ok(Map.of(
+                "message",  req.active()
+                        ? req.language() + " enabled"
+                        : req.language() + " disabled",
+                "language", req.language(),
+                "active",   String.valueOf(req.active())
         ));
     }
 }

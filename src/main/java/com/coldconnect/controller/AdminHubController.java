@@ -1,8 +1,10 @@
 package com.coldconnect.controller;
 
 import com.coldconnect.entity.Hub;
+import com.coldconnect.entity.SensorReading;
 import com.coldconnect.exception.AppException;
 import com.coldconnect.repository.HubRepository;
+import com.coldconnect.repository.SensorReadingRepository;
 import com.coldconnect.repository.UserRepository;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -12,8 +14,10 @@ import jakarta.validation.constraints.NotNull;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/admin/hubs")
@@ -21,12 +25,15 @@ import java.util.Map;
 @Tag(name = "Admin Operators", description = "Hub management — Admin only")
 public class AdminHubController extends BaseController {
 
-    private final HubRepository hubRepository;
+    private final HubRepository           hubRepository;
+    private final SensorReadingRepository sensorReadingRepository;
 
     public AdminHubController(UserRepository userRepository,
-                              HubRepository hubRepository) {
+                              HubRepository hubRepository,
+                              SensorReadingRepository sensorReadingRepository) {
         super(userRepository);
-        this.hubRepository = hubRepository;
+        this.hubRepository           = hubRepository;
+        this.sensorReadingRepository = sensorReadingRepository;
     }
 
     public record CreateHubRequest(
@@ -112,10 +119,7 @@ public class AdminHubController extends BaseController {
         ));
     }
 
-    @Operation(
-            summary = "Get hub energy and solar stats",
-            description = "Solar kWh generated, battery level, grid usage and PUE"
-    )
+    @Operation(summary = "Get hub energy and solar stats")
     @GetMapping("/{hubId}/energy")
     public ResponseEntity<Map<String, Object>> getHubEnergy(
             @PathVariable Long hubId) {
@@ -124,20 +128,14 @@ public class AdminHubController extends BaseController {
                 .orElseThrow(() -> new AppException.NotFoundException(
                         "Hub not found: " + hubId));
 
-        // Calculate utilization
         double capacity    = hub.getCapacityKg() != null ? hub.getCapacityKg() : 0;
         double currentLoad = hub.getCurrentLoadKg() != null ? hub.getCurrentLoadKg() : 0;
         double utilPct     = capacity > 0 ? (currentLoad / capacity) * 100 : 0;
-
-        // Estimate solar kWh based on capacity and solar panel size
         double solarKw     = hub.getSolarCapacityKw() != null ? hub.getSolarCapacityKw() : 0;
         double batteryKwh  = hub.getBatteryCapacityKwh() != null ? hub.getBatteryCapacityKwh() : 0;
-
-        // PUE = total energy / IT energy (cooling load proxy)
-        // Estimate: 1.3 is good, 2.0 is poor for cold storage
         double pueEstimate = utilPct > 0 ? 1.3 + (1 - utilPct / 100) * 0.5 : 2.0;
 
-        Map<String, Object> response = new java.util.HashMap<>();
+        Map<String, Object> response = new HashMap<>();
         response.put("hubId",              hub.getHubId());
         response.put("name",               hub.getName());
         response.put("powerType",          hub.getPowerType());
@@ -153,9 +151,44 @@ public class AdminHubController extends BaseController {
         response.put("tempTargetMin",      hub.getTempTargetMin());
         response.put("tempTargetMax",      hub.getTempTargetMax());
         response.put("solarShareEstimatePct",
-                hub.getPowerType() != null && hub.getPowerType().equals("SOLAR") ? 100
-                        : hub.getPowerType() != null && hub.getPowerType().equals("HYBRID") ? 60 : 0);
+                "SOLAR".equals(hub.getPowerType()) ? 100
+                        : "HYBRID".equals(hub.getPowerType()) ? 60 : 0);
 
         return ResponseEntity.ok(response);
+    }
+
+    @Operation(summary = "Get all assets with maintenance status")
+    @GetMapping("/assets")
+    public ResponseEntity<Map<String, Object>> getAssets(
+            @RequestParam(required = false) String hubId) {
+
+        List<SensorReading> readings = sensorReadingRepository.findAll();
+
+        // Group by assetId — keep latest reading per asset
+        var assetMap = readings.stream()
+                .collect(Collectors.toMap(
+                        SensorReading::getAssetId,
+                        r -> r,
+                        (r1, r2) -> r1.getTimestamp() != null
+                                && r2.getTimestamp() != null
+                                && r1.getTimestamp().isAfter(r2.getTimestamp()) ? r1 : r2));
+
+        var assets = assetMap.entrySet().stream().map(e -> {
+            SensorReading reading = e.getValue();
+            Map<String, Object> asset = new HashMap<>();
+            asset.put("assetId",     e.getKey());
+            asset.put("lastReading", reading.getTimestamp());
+            asset.put("tempC",       reading.getTempC());
+            asset.put("batteryPct",  reading.getBatteryPct());
+            asset.put("qualityFlag", reading.getQualityFlag());
+            asset.put("health",      "OK".equalsIgnoreCase(reading.getQualityFlag())
+                    ? "Good" : "Attention");
+            return asset;
+        }).toList();
+
+        return ResponseEntity.ok(Map.of(
+                "assets", assets,
+                "count",  assets.size()
+        ));
     }
 }

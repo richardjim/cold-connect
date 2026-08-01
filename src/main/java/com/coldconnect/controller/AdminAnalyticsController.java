@@ -1,17 +1,22 @@
 package com.coldconnect.controller;
 
 import com.coldconnect.entity.Booking;
-import com.coldconnect.repository.BookingRepository;
-import com.coldconnect.repository.HubRepository;
-import com.coldconnect.repository.MarketOrderRepository;
-import com.coldconnect.repository.UserRepository;
+import com.coldconnect.entity.CrateLot;
+import com.coldconnect.entity.Payment;
+import com.coldconnect.entity.SupportCase;
+import com.coldconnect.repository.*;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Map;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.TextStyle;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/admin/analytics")
@@ -22,40 +27,115 @@ public class AdminAnalyticsController extends BaseController {
     private final BookingRepository     bookingRepository;
     private final MarketOrderRepository orderRepository;
     private final HubRepository         hubRepository;
+    private final PaymentRepository     paymentRepository;
+    private final SupportCaseRepository supportCaseRepository;
+    private final CrateLotRepository    crateLotRepository;
 
     public AdminAnalyticsController(UserRepository userRepository,
                                     BookingRepository bookingRepository,
                                     MarketOrderRepository orderRepository,
-                                    HubRepository hubRepository) {
+                                    HubRepository hubRepository,
+                                    PaymentRepository paymentRepository,
+                                    SupportCaseRepository supportCaseRepository,
+                                    CrateLotRepository crateLotRepository) {
         super(userRepository);
-        this.bookingRepository = bookingRepository;
-        this.orderRepository   = orderRepository;
-        this.hubRepository     = hubRepository;
+        this.bookingRepository     = bookingRepository;
+        this.orderRepository       = orderRepository;
+        this.hubRepository         = hubRepository;
+        this.paymentRepository     = paymentRepository;
+        this.supportCaseRepository = supportCaseRepository;
+        this.crateLotRepository    = crateLotRepository;
     }
 
-    @Operation(summary = "Platform overview — users, bookings, orders, hubs")
+    @Operation(summary = "Admin overview — KPIs, revenue chart, issues, hubs")
     @GetMapping("/overview")
-    public ResponseEntity<Map<String, Object>> getOverview() {
-        long totalUsers    = userRepository.count();
-        long totalBookings = bookingRepository.count();
-        long totalOrders   = orderRepository.count();
-        long totalHubs     = hubRepository.count();
+    public ResponseEntity<Map<String, Object>> getOverview(
+            @RequestParam(required = false) String region) {
+
+        long totalCratesInStorage = crateLotRepository.findAll().stream()
+                .filter(c -> c.getStatus() == CrateLot.CrateStatus.IN_STORAGE)
+                .count();
 
         var bookings = bookingRepository.findAll();
-        long pending   = bookings.stream().filter(b -> b.getStatus() == Booking.BookingStatus.PENDING).count();
-        long confirmed = bookings.stream().filter(b -> b.getStatus() == Booking.BookingStatus.CONFIRMED).count();
-        long completed = bookings.stream().filter(b -> b.getStatus() == Booking.BookingStatus.COMPLETED).count();
-        long cancelled = bookings.stream().filter(b -> b.getStatus() == Booking.BookingStatus.CANCELLED).count();
+        var payments = paymentRepository.findAll();
+        var cases    = supportCaseRepository.findAll();
+        var hubs     = hubRepository.findAll();
+
+        // Revenue last 7 days
+        LocalDateTime sevenDaysAgo = LocalDateTime.now().minusDays(7);
+        BigDecimal revenue7d = payments.stream()
+                .filter(p -> "CAPTURED".equals(p.getStatus())
+                        && p.getCreatedAt() != null
+                        && p.getCreatedAt().isAfter(sevenDaysAgo))
+                .map(Payment::getAmount)
+                .filter(a -> a != null)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        long openIssues = cases.stream()
+                .filter(c -> !"CLOSED".equalsIgnoreCase(c.getStatus())
+                        && !"RESOLVED".equalsIgnoreCase(c.getStatus()))
+                .count();
+
+        // Issues by type
+        Map<String, Long> issuesByType = cases.stream()
+                .filter(c -> c.getType() != null)
+                .collect(Collectors.groupingBy(
+                        SupportCase::getType,
+                        Collectors.counting()));
+
+        // Hub table
+        var hubTable = hubs.stream().map(hub -> {
+            Map<String, Object> h = new HashMap<>();
+            h.put("hubId",        hub.getHubId());
+            h.put("name",         hub.getName());
+            h.put("capacityPct",  hub.getCapacityKg() != null && hub.getCapacityKg() > 0
+                    ? Math.round((hub.getCurrentLoadKg() / hub.getCapacityKg()) * 100) : 0);
+            h.put("tempCurrentC", hub.getTempCurrentC());
+            h.put("powerStatus",  hub.getPowerStatus());
+            h.put("solarKw",      hub.getSolarCapacityKw() != null ? hub.getSolarCapacityKw() : 0);
+            h.put("status",       hub.getStatus() != null ? hub.getStatus().name() : "UNKNOWN");
+            return h;
+        }).toList();
+
+        // Revenue by day chart
+        var revenueByDay = new LinkedHashMap<String, BigDecimal>();
+        for (int i = 6; i >= 0; i--) {
+            LocalDate  day      = LocalDate.now().minusDays(i);
+            String     label    = day.getDayOfWeek()
+                    .getDisplayName(TextStyle.SHORT, Locale.ENGLISH);
+            BigDecimal dayRevenue = payments.stream()
+                    .filter(p -> "CAPTURED".equals(p.getStatus())
+                            && p.getCreatedAt() != null
+                            && p.getCreatedAt().toLocalDate().equals(day))
+                    .map(Payment::getAmount)
+                    .filter(a -> a != null)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            revenueByDay.put(label, dayRevenue);
+        }
+
+        long pending   = bookings.stream()
+                .filter(b -> b.getStatus() == Booking.BookingStatus.PENDING).count();
+        long confirmed = bookings.stream()
+                .filter(b -> b.getStatus() == Booking.BookingStatus.CONFIRMED).count();
+        long completed = bookings.stream()
+                .filter(b -> b.getStatus() == Booking.BookingStatus.COMPLETED).count();
+        long cancelled = bookings.stream()
+                .filter(b -> b.getStatus() == Booking.BookingStatus.CANCELLED).count();
 
         return ResponseEntity.ok(Map.of(
-                "totalUsers",        totalUsers,
-                "totalBookings",     totalBookings,
-                "pendingBookings",   pending,
-                "confirmedBookings", confirmed,
-                "completedBookings", completed,
-                "cancelledBookings", cancelled,
-                "totalOrders",       totalOrders,
-                "totalHubs",         totalHubs
+                "cratesInStorage",  totalCratesInStorage,
+                "revenue7d",        revenue7d,
+                "openIssues",       openIssues,
+                "issuesByType",     issuesByType,
+                "hubs",             hubTable,
+                "revenueByDay",     revenueByDay,
+                "totalBookings",    bookings.size(),
+                "bookingsByStatus", Map.of(
+                        "PENDING",   pending,
+                        "CONFIRMED", confirmed,
+                        "COMPLETED", completed,
+                        "CANCELLED", cancelled
+                )
         ));
     }
 
@@ -67,10 +147,9 @@ public class AdminAnalyticsController extends BaseController {
                 "name",           hub.getName(),
                 "capacityKg",     hub.getCapacityKg(),
                 "currentLoadKg",  hub.getCurrentLoadKg(),
-                "utilizationPct", hub.getCapacityKg() > 0
-                        ? Math.round((hub.getCurrentLoadKg() / hub.getCapacityKg()) * 100)
-                        : 0,
-                "status",         hub.getStatus()
+                "utilizationPct", hub.getCapacityKg() != null && hub.getCapacityKg() > 0
+                        ? Math.round((hub.getCurrentLoadKg() / hub.getCapacityKg()) * 100) : 0,
+                "status",         hub.getStatus() != null ? hub.getStatus().name() : "UNKNOWN"
         )).toList();
         return ResponseEntity.ok(hubs);
     }

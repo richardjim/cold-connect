@@ -58,6 +58,8 @@ public class User implements UserDetails {
     private String location;
     private String persona;
     private String organizationId;
+    private String  gender;   // MALE, FEMALE, OTHER, PREFER_NOT_TO_SAY
+    private Boolean youth;    // true if under 35
 
     @PrePersist
     protected void onCreate() {
@@ -138,6 +140,11 @@ public class User implements UserDetails {
 
     public Long getCustomerTypeId() { return customerTypeId; }
     public void setCustomerTypeId(Long customerTypeId) { this.customerTypeId = customerTypeId; }
+
+    public String getGender() { return gender; }
+    public void setGender(String gender) { this.gender = gender; }
+    public Boolean getYouth() { return youth; }
+    public void setYouth(Boolean youth) { this.youth = youth; }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }

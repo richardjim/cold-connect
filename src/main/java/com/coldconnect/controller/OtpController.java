@@ -81,7 +81,15 @@ public class OtpController extends BaseController {
             String persona,
 
             @Schema(example = "optional-org-id", description = "Organization ID if applicable")
-            String organizationId
+            String organizationId,
+
+            @Schema(example = "FEMALE",
+                    description = "MALE · FEMALE · OTHER · PREFER_NOT_TO_SAY")
+                    String gender,
+
+            @Schema(example = "true",
+                    description = "true if user is under 35 — for DARES inclusion reporting")
+            Boolean youth
     ) {}
 
     public record OtpRequestBody(
@@ -157,6 +165,9 @@ public class OtpController extends BaseController {
         if (req.organizationId() != null && !req.organizationId().isBlank()) {
             user.setOrganizationId(req.organizationId());
         }
+
+        if (req.gender() != null) user.setGender(req.gender());
+        if (req.youth() != null)  user.setYouth(req.youth());
 
         userRepository.save(user);
 
