@@ -55,32 +55,71 @@ public class AdminBookingController extends BaseController {
             String overrideReason
     ) {}
 
-    @Operation(summary = "Get all bookings — paginated and filterable")
+    @Operation(
+            summary = "Get all bookings — filterable by status",
+            description = "Status: PENDING · CONFIRMED · IN_PROGRESS · COMPLETED · CANCELLED · DISPUTED"
+    )
     @GetMapping
-    public ResponseEntity<Page<Booking>> getAllBookings(
+    public ResponseEntity<Map<String, Object>> getAllBookings(
             @RequestParam(defaultValue = "0")  int page,
             @RequestParam(defaultValue = "20") int size,
-            @RequestParam(required = false)    String status) {
+            @RequestParam(required = false)    String status,
+            @RequestParam(required = false)    String hubId,
+            @RequestParam(required = false)    String serviceType) {
 
-        PageRequest pageable = PageRequest.of(page, size,
-                Sort.by("id").descending());
+        var all = bookingRepository.findAll();
 
-        Page<Booking> bookings = bookingRepository.findAll(pageable);
-
-        if (status != null) {
+        // Filter by status
+        if (status != null && !status.isBlank()) {
             try {
-                Booking.BookingStatus s = Booking.BookingStatus.valueOf(status.toUpperCase());
-                var filtered = bookingRepository.findAll().stream()
-                        .filter(b -> b.getStatus() == s).toList();
-                return ResponseEntity.ok(
-                        new org.springframework.data.domain.PageImpl<>(filtered, pageable, filtered.size())
-                );
+                Booking.BookingStatus s =
+                        Booking.BookingStatus.valueOf(status.toUpperCase());
+                all = all.stream().filter(b -> b.getStatus() == s).toList();
             } catch (IllegalArgumentException e) {
-                throw new AppException.BadRequestException("Invalid status: " + status);
+                throw new AppException.BadRequestException(
+                        "Invalid status. Must be: PENDING, CONFIRMED, IN_PROGRESS, COMPLETED, CANCELLED");
             }
         }
 
-        return ResponseEntity.ok(bookings);
+        // Filter by hubId
+        if (hubId != null && !hubId.isBlank()) {
+            try {
+                Long hid = Long.valueOf(hubId);
+                all = all.stream().filter(b -> hid.equals(b.getHubId())).toList();
+            } catch (NumberFormatException ignored) {}
+        }
+
+        // Filter by serviceType
+        if (serviceType != null && !serviceType.isBlank()) {
+            all = all.stream()
+                    .filter(b -> serviceType.equalsIgnoreCase(b.getServiceType()))
+                    .toList();
+        }
+
+        // Sort newest first
+        all = all.stream()
+                .sorted((a, b) -> {
+                    if (a.getCreatedAt() == null) return 1;
+                    if (b.getCreatedAt() == null) return -1;
+                    return b.getCreatedAt().compareTo(a.getCreatedAt());
+                })
+                .toList();
+
+        // Manual pagination
+        int total     = all.size();
+        int fromIndex = Math.min(page * size, total);
+        int toIndex   = Math.min(fromIndex + size, total);
+        var pageItems = all.subList(fromIndex, toIndex);
+
+        return ResponseEntity.ok(Map.of(
+                "bookings",    pageItems,
+                "total",       total,
+                "page",        page,
+                "size",        size,
+                "totalPages",  (int) Math.ceil((double) total / size),
+                "hasNext",     toIndex < total,
+                "hasPrev",     page > 0
+        ));
     }
 
     @Operation(summary = "Get booking detail")
