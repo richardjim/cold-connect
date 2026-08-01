@@ -13,6 +13,7 @@ com/coldconnect/entity/TenantRegion.class
 com/coldconnect/entity/Hub.class
 com/coldconnect/controller/AdminAuthController$ResetRequest.class
 com/coldconnect/service/WalletLedgerService$WalletDetail.class
+com/coldconnect/controller/AdminSupportController$MessageCustomerRequest.class
 com/coldconnect/controller/AdminBookingController$ManualBookingRequest.class
 com/coldconnect/service/ImpactService.class
 com/coldconnect/exception/AppException$TooManyRequestsException.class
@@ -23,6 +24,7 @@ com/coldconnect/controller/AdminHubController.class
 com/coldconnect/repository/BookingRepository.class
 com/coldconnect/controller/AdminCustomerTypeController.class
 com/coldconnect/repository/BookingIdempotencyKeyRepository.class
+com/coldconnect/controller/AdminIotThresholdController$ThresholdRequest.class
 com/coldconnect/repository/NotificationRepository.class
 com/coldconnect/entity/OfflineSyncRecord.class
 com/coldconnect/entity/DriverProfile.class
@@ -47,6 +49,7 @@ com/coldconnect/controller/ProfileController$UpdateProfileRequest.class
 com/coldconnect/service/WalletService$WalletSummary.class
 com/coldconnect/controller/MarketplaceController$PlaceOrderRequest.class
 com/coldconnect/controller/AdminAuthController$RegisterRequest.class
+com/coldconnect/thirdparty/PaystackService$VerifyResponse.class
 com/coldconnect/repository/ImpactMetricRepository.class
 com/coldconnect/entity/CartItem.class
 com/coldconnect/repository/ChainEventRepository.class
@@ -58,6 +61,7 @@ com/coldconnect/service/CartService.class
 com/coldconnect/service/BookingService.class
 com/coldconnect/controller/CartController$AddItemRequest.class
 com/coldconnect/repository/SafetyCheckRepository.class
+com/coldconnect/controller/BookingController$WeighRequest.class
 com/coldconnect/controller/OtpController.class
 com/coldconnect/repository/OrderItemRepository.class
 com/coldconnect/entity/ServiceRate.class
@@ -77,6 +81,7 @@ com/coldconnect/enums/Language.class
 com/coldconnect/entity/ImpactMetric.class
 com/coldconnect/controller/AdminBookingController.class
 com/coldconnect/entity/AuditLog.class
+com/coldconnect/controller/AdminIotThresholdController.class
 com/coldconnect/repository/SupportCaseRepository.class
 com/coldconnect/controller/AdminInventoryController.class
 com/coldconnect/service/SyncService.class
@@ -86,9 +91,12 @@ com/coldconnect/controller/AdminCustomerTypeController$CustomerTypeRequest.class
 com/coldconnect/service/ImpactService$ImpactResponse.class
 com/coldconnect/repository/TripRepository.class
 com/coldconnect/repository/UserRepository.class
+com/coldconnect/thirdparty/PaystackService.class
+com/coldconnect/config/CorsConfig.class
 com/coldconnect/controller/AdminHubController$CreateHubRequest.class
 com/coldconnect/service/WalletLedgerService.class
 com/coldconnect/repository/HubRepository.class
+com/coldconnect/thirdparty/PaystackService$InitializeResponse.class
 com/coldconnect/controller/AdminUserController.class
 com/coldconnect/entity/LeadEnquiry.class
 com/coldconnect/service/HubService$CapacitySnapshot.class
@@ -113,6 +121,7 @@ com/coldconnect/controller/AdminSettingsController.class
 com/coldconnect/controller/AdminMarketplaceController.class
 com/coldconnect/controller/AdminAuthController$RefreshRequest.class
 com/coldconnect/exception/AppException$NotFoundException.class
+com/coldconnect/entity/IotThreshold.class
 com/coldconnect/service/HubService.class
 com/coldconnect/service/RegionService.class
 com/coldconnect/repository/MarketOrderRepository.class
@@ -134,6 +143,7 @@ com/coldconnect/repository/ServiceRateRepository.class
 com/coldconnect/entity/MarketOrder.class
 com/coldconnect/controller/AdminSupportController.class
 com/coldconnect/controller/AdminSupportController$UpdateCaseRequest.class
+com/coldconnect/controller/PaymentController$VerifyRequest.class
 com/coldconnect/repository/TripStopRepository.class
 com/coldconnect/controller/AdminUserController$RoleChangeRequest.class
 com/coldconnect/controller/CommodityController.class
@@ -150,6 +160,7 @@ com/coldconnect/service/MarketplaceService.class
 com/coldconnect/controller/AdminAuthController$ForgotRequest.class
 com/coldconnect/controller/AdminImpactController.class
 com/coldconnect/entity/Commodity.class
+com/coldconnect/controller/PaymentController$PaymentRequest.class
 com/coldconnect/controller/AdminInventoryController$InventoryEventRequest.class
 com/coldconnect/entity/SupportCase.class
 com/coldconnect/controller/CartController$UpdateItemRequest.class
@@ -165,6 +176,7 @@ com/coldconnect/i18n/AppMessages$Key.class
 com/coldconnect/repository/CrateLotRepository.class
 com/coldconnect/filter/JwtAuthFilter.class
 com/coldconnect/entity/CrateLot$CrateStatus.class
+com/coldconnect/repository/IotThresholdRepository.class
 com/coldconnect/controller/RegionController.class
 com/coldconnect/repository/WalletTransactionRepository.class
 com/coldconnect/controller/AdminPaymentController$ReconcileRequest.class
@@ -186,6 +198,7 @@ com/coldconnect/service/SyncService$SyncResult.class
 com/coldconnect/entity/BookingIdempotencyKey.class
 com/coldconnect/controller/PublicController$ContactLeadRequest.class
 com/coldconnect/entity/User.class
+com/coldconnect/controller/PaymentController.class
 com/coldconnect/entity/Trip.class
 com/coldconnect/service/EmailService.class
 com/coldconnect/entity/Payment.class
