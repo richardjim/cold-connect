@@ -12,6 +12,7 @@ import com.coldconnect.repository.BookingRepository;
 import com.coldconnect.repository.HubRepository;
 import com.coldconnect.repository.ServiceRateRepository;
 import com.coldconnect.repository.TenantRegionRepository;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,6 +33,7 @@ public class BookingService {
     private final BookingIdempotencyKeyRepository idempotencyRepository;
     private final HubRepository                   hubRepository;
     private final TenantRegionRepository          regionRepository;
+    private final ImpactService                   impactService;
     private final AppMessages                     messages;
 
     public BookingService(BookingRepository bookingRepository,
@@ -40,6 +42,7 @@ public class BookingService {
                           BookingIdempotencyKeyRepository idempotencyRepository,
                           HubRepository hubRepository,
                           TenantRegionRepository regionRepository,
+                          @Lazy ImpactService impactService,
                           AppMessages messages) {
         this.bookingRepository     = bookingRepository;
         this.quoteRepository       = quoteRepository;
@@ -47,6 +50,7 @@ public class BookingService {
         this.idempotencyRepository = idempotencyRepository;
         this.hubRepository         = hubRepository;
         this.regionRepository      = regionRepository;
+        this.impactService         = impactService;
         this.messages              = messages;
     }
 
@@ -250,6 +254,29 @@ public class BookingService {
     }
 
     @Transactional
+    public Booking completeBooking(String bookingId, Long userId, String language) {
+        Booking booking = getBooking(bookingId, language);
+
+        if (!booking.getCustomerId().equals(userId)) {
+            throw new AppException.UnauthorizedException("Not your booking");
+        }
+        if (booking.getStatus() == Booking.BookingStatus.CANCELLED) {
+            throw new AppException.BadRequestException("Cannot complete a cancelled booking");
+        }
+        if (booking.getStatus() == Booking.BookingStatus.COMPLETED) {
+            throw new AppException.BadRequestException("Booking is already completed");
+        }
+
+        booking.setStatus(Booking.BookingStatus.COMPLETED);
+        booking = bookingRepository.save(booking);
+
+        // Auto-recalculate impact on completion
+        impactService.recalculate(booking.getCustomerId());
+
+        return booking;
+    }
+
+    @Transactional
     public Booking weighBooking(String bookingId, Double finalWeightKg,
                                 Long userId, String language) {
         Booking booking = getBooking(bookingId, language);
@@ -285,7 +312,12 @@ public class BookingService {
         booking.setFinalWeightKg(finalWeightKg);
         booking.setFinalTotal(finalTotal);
         booking.setWeighedAt(LocalDateTime.now());
-        return bookingRepository.save(booking);
+        booking = bookingRepository.save(booking);
+
+        // Auto-recalculate impact after weighing
+        impactService.recalculate(booking.getCustomerId());
+
+        return booking;
     }
 
     public BookingQuote getQuote(String bookingId, String language) {

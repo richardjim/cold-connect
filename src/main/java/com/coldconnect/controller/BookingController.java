@@ -233,4 +233,22 @@ public class BookingController extends BaseController {
                 "weighedAt",     booking.getWeighedAt()
         ));
     }
+
+    @Operation(
+            summary = "Mark booking as completed",
+            description = "Called when customer collects produce from hub. Triggers impact recalculation."
+    )
+    @PostMapping("/{bookingId}/complete")
+    public ResponseEntity<Map<String, Object>> completeBooking(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable String bookingId) {
+        String lang   = resolveLanguage(userDetails);
+        Long   userId = resolveUser(userDetails).getId();
+        Booking booking = bookingService.completeBooking(bookingId, userId, lang);
+        return ResponseEntity.ok(Map.of(
+                "message",   "Booking completed",
+                "bookingId", booking.getBookingId(),
+                "status",    booking.getStatus().name()
+        ));
+    }
 }
