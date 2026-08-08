@@ -11,16 +11,19 @@ public class SensorReading {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private String assetId;
-    private String assetSubtype;
+    private String        assetId;
+    private String        assetSubtype;
     private LocalDateTime timestamp;
-    private Double tempC;
-    private Double humidityPct;
-    private Double batteryPct;
-    private String doorEvent;
-    private Double gpsLat;
-    private Double gpsLng;
-    private String qualityFlag;
+
+    @Column(name = "tempc")
+    private Double        tempC;
+
+    private Double        humidityPct;
+    private Double        batteryPct;
+    private String        doorEvent;
+    private Double        gpsLat;
+    private Double        gpsLng;
+    private String        qualityFlag;
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }

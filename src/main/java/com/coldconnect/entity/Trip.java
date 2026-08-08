@@ -41,7 +41,7 @@ public class Trip {
         tripId    = "TRP-" + System.currentTimeMillis();
     }
 
-    public enum TripStatus { PLANNED, IN_PROGRESS, COMPLETED, CANCELLED }
+    public enum TripStatus { PLANNED, IN_PROGRESS, COMPLETED, SCHEDULED, CANCELLED }
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
