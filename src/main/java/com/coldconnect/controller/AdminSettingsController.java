@@ -162,7 +162,10 @@ public class AdminSettingsController extends BaseController {
             String packagingRules,
 
             @Schema(example = "Keep dry and away from ethylene-producing fruits")
-            String handlingNotes
+            String handlingNotes,
+
+            @Schema(example = "https://images.unsplash.com/photo-xxx?w=400")
+            String imageUrl
     ) {}
 
     @Operation(summary = "Get all commodities — admin view with filters")
@@ -206,6 +209,7 @@ public class AdminSettingsController extends BaseController {
         commodity.setShelfLifeDays(req.shelfLifeDays());
         commodity.setPackagingRules(req.packagingRules());
         commodity.setHandlingNotes(req.handlingNotes());
+        if (req.imageUrl() != null) commodity.setImageUrl(req.imageUrl());
         return ResponseEntity.ok(commodityRepository.save(commodity));
     }
 
@@ -227,6 +231,7 @@ public class AdminSettingsController extends BaseController {
         if (req.shelfLifeDays() != null)  commodity.setShelfLifeDays(req.shelfLifeDays());
         if (req.packagingRules() != null) commodity.setPackagingRules(req.packagingRules());
         if (req.handlingNotes() != null)  commodity.setHandlingNotes(req.handlingNotes());
+        if (req.imageUrl() != null)       commodity.setImageUrl(req.imageUrl());
 
         return ResponseEntity.ok(commodityRepository.save(commodity));
     }

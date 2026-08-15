@@ -1,6 +1,7 @@
 package com.coldconnect.config;
 
 import com.coldconnect.filter.JwtAuthFilter;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -30,8 +31,8 @@ public class SecurityConfig {
     public SecurityConfig(JwtAuthFilter jwtAuthFilter,
                           UserDetailsService userDetailsService,
                           CorsConfigurationSource corsConfigurationSource) {
-        this.jwtAuthFilter          = jwtAuthFilter;
-        this.userDetailsService     = userDetailsService;
+        this.jwtAuthFilter           = jwtAuthFilter;
+        this.userDetailsService      = userDetailsService;
         this.corsConfigurationSource = corsConfigurationSource;
     }
 
@@ -62,7 +63,9 @@ public class SecurityConfig {
             "/v1/public/**",
             "/v1/newsletter/**",
             "/v1/customer-types/**",
-            "/web/pages/**"
+            "/web/pages/**",
+            "/v1/payments/webhook",
+            "/v1/payments/callback"
     };
 
     @Bean
@@ -72,6 +75,24 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(s -> s.sessionCreationPolicy(
                         SessionCreationPolicy.STATELESS))
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint((request, response, authException) -> {
+                            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                            response.setContentType("application/json");
+                            response.getWriter().write(
+                                    "{\"status\":401,\"error\":\"Unauthorized\"," +
+                                            "\"message\":\"Authentication required. Please provide a valid token.\"}"
+                            );
+                        })
+                        .accessDeniedHandler((request, response, accessDeniedException) -> {
+                            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                            response.setContentType("application/json");
+                            response.getWriter().write(
+                                    "{\"status\":403,\"error\":\"Forbidden\"," +
+                                            "\"message\":\"You do not have permission to access this resource.\"}"
+                            );
+                        })
+                )
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(SWAGGER_PATHS).permitAll()
                         .requestMatchers(PUBLIC_PATHS).permitAll()
