@@ -19,6 +19,10 @@ public class Commodity {
     private String packagingRules;
     private String handlingNotes;
     private String region;
+    private String imageUrl;
+
+    public String getImageUrl() { return imageUrl; }
+    public void setImageUrl(String imageUrl) { this.imageUrl = imageUrl; }
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
