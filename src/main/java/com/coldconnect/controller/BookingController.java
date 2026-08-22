@@ -3,6 +3,7 @@ package com.coldconnect.controller;
 import com.coldconnect.entity.Booking;
 import com.coldconnect.entity.BookingQuote;
 import com.coldconnect.entity.Hub;
+import com.coldconnect.exception.AppException;
 import com.coldconnect.i18n.AppMessages;
 import com.coldconnect.repository.HubRepository;
 import com.coldconnect.repository.UserRepository;
@@ -96,7 +97,7 @@ public class BookingController extends BaseController {
 
             @Schema(example = "FARM_TO_HUB",
                     description = "FARM_TO_HUB · HUB_TO_MARKET · HUB_TO_BUYER")
-                    String routeType,
+            String routeType,
 
             @Schema(example = "6 crates",
                     description = "6 crates · 12 crates · Half truck · Full truck")
@@ -124,13 +125,9 @@ public class BookingController extends BaseController {
     @Operation(
             summary = "Create a booking",
             description = """
-            5-step booking wizard:
-            Step 1: hubId + windowStart + serviceType
-            Step 2: commodityId (via region)
-            Step 3: quantityKg + crateCount + packagingType
-            Step 4: days
-            Step 5: paymentMethod → confirm
+            5-step booking wizard.
             Final price confirmed after weighing via PATCH /{bookingId}/weigh.
+            windowStart and windowEnd are optional — defaults to now + days.
             """
     )
     @PostMapping
@@ -140,10 +137,25 @@ public class BookingController extends BaseController {
         String lang   = resolveLanguage(userDetails);
         Long   userId = resolveUser(userDetails).getId();
 
+        // windowEnd validation — only if both provided
+        if (req.windowStart() != null && req.windowEnd() != null
+                && req.windowEnd().isBefore(req.windowStart())) {
+            throw new AppException.BadRequestException(
+                    "windowEnd must be after windowStart");
+        }
+
+        // Resolve effective window
+        LocalDateTime effectiveStart = req.windowStart() != null
+                ? req.windowStart() : LocalDateTime.now();
+        LocalDateTime effectiveEnd   = req.windowEnd() != null
+                ? req.windowEnd()
+                : effectiveStart.plusDays(req.days());
+
         Booking booking = bookingService.createBooking(
                 userId, req.serviceType(), req.hubId(), req.region(),
-                req.quantityKg(), req.days(), req.windowStart(),
-                req.windowEnd(), "APP", req.idempotencyKey(),
+                req.quantityKg(), req.days(),
+                effectiveStart, effectiveEnd,
+                "APP", req.idempotencyKey(),
                 req.pickupAddress(), req.dropoffAddress(),
                 req.crateCount(), req.packagingType(),
                 req.paymentMethod(), req.routeType(), req.loadSize(),
@@ -152,24 +164,42 @@ public class BookingController extends BaseController {
                         && req.operatorCallbackRequested(),
                 lang);
 
-        // Enrich response with hub info for confirmation screen
         Hub hub = hubRepository.findById(req.hubId()).orElse(null);
 
         Map<String, Object> response = new HashMap<>();
-        response.put("message",    messages.get(AppMessages.Key.BOOKING_CREATED, lang));
-        response.put("booking",    booking);
-        response.put("hubName",    hub != null ? hub.getName() : "");
-        response.put("hubAddress", hub != null ? hub.getAddress() : "");
+        response.put("message",              messages.get(AppMessages.Key.BOOKING_CREATED, lang));
+        response.put("booking",              booking);
+        response.put("hubName",              hub != null ? hub.getName() : "");
+        response.put("hubAddress",           hub != null ? hub.getAddress() : "");
+        response.put("expectedCheckoutDate", effectiveStart.plusDays(req.days()).toLocalDate().toString());
+        response.put("checkoutBy",           "8:00pm");
         return ResponseEntity.ok(response);
     }
 
     @Operation(summary = "Get booking detail")
     @GetMapping("/{bookingId}")
-    public ResponseEntity<Booking> getBooking(
+    public ResponseEntity<Map<String, Object>> getBooking(
             @AuthenticationPrincipal UserDetails userDetails,
             @PathVariable String bookingId) {
-        String lang = resolveLanguage(userDetails);
-        return ResponseEntity.ok(bookingService.getBooking(bookingId, lang));
+        String lang    = resolveLanguage(userDetails);
+        Long   userId  = resolveUser(userDetails).getId();
+        Booking booking = bookingService.getBooking(bookingId, lang);
+
+        // Ownership check
+        if (!booking.getCustomerId().equals(userId)) {
+            throw new AppException.UnauthorizedException("Not your booking");
+        }
+
+        // Enrich with hub info
+        Hub hub = booking.getHubId() != null
+                ? hubRepository.findById(booking.getHubId()).orElse(null)
+                : null;
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("booking",    booking);
+        response.put("hubName",    hub != null ? hub.getName() : "");
+        response.put("hubAddress", hub != null ? hub.getAddress() : "");
+        return ResponseEntity.ok(response);
     }
 
     @Operation(summary = "Get booking quote")
@@ -177,7 +207,15 @@ public class BookingController extends BaseController {
     public ResponseEntity<BookingQuote> getQuote(
             @AuthenticationPrincipal UserDetails userDetails,
             @PathVariable String bookingId) {
-        String lang = resolveLanguage(userDetails);
+        String lang   = resolveLanguage(userDetails);
+        Long   userId = resolveUser(userDetails).getId();
+        Booking booking = bookingService.getBooking(bookingId, lang);
+
+        // Ownership check
+        if (!booking.getCustomerId().equals(userId)) {
+            throw new AppException.UnauthorizedException("Not your booking");
+        }
+
         return ResponseEntity.ok(bookingService.getQuote(bookingId, lang));
     }
 
@@ -186,8 +224,9 @@ public class BookingController extends BaseController {
     public ResponseEntity<Map<String, Object>> confirmBooking(
             @AuthenticationPrincipal UserDetails userDetails,
             @PathVariable String bookingId) {
-        String lang     = resolveLanguage(userDetails);
-        Booking booking = bookingService.confirmBooking(bookingId, lang);
+        String lang   = resolveLanguage(userDetails);
+        Long   userId = resolveUser(userDetails).getId();
+        Booking booking = bookingService.confirmBooking(bookingId, userId, lang);
         return ResponseEntity.ok(Map.of(
                 "message", messages.get(AppMessages.Key.BOOKING_CONFIRMED, lang),
                 "booking", booking
@@ -210,11 +249,7 @@ public class BookingController extends BaseController {
 
     @Operation(
             summary = "Record final weight after weighing at hub",
-            description = """
-            Called after produce is weighed at the hub scale.
-            Recalculates final total based on actual weight.
-            Booking must be CONFIRMED or IN_PROGRESS.
-            """
+            description = "Booking must be CONFIRMED or IN_PROGRESS."
     )
     @PatchMapping("/{bookingId}/weigh")
     public ResponseEntity<Map<String, Object>> weighBooking(

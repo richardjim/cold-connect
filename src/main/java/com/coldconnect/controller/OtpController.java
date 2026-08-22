@@ -48,30 +48,29 @@ public class OtpController extends BaseController {
     }
 
     public record SignupRequest(
-            @NotBlank
+            @NotBlank(message = "Phone number is required")
             @Pattern(regexp = "^\\+?[0-9]{7,15}$",
                     message = "Phone number must contain digits only, 7-15 characters")
             String phone,
 
-            @NotBlank
+            @NotBlank(message = "Full name is required")
             @Size(min = 2, max = 100, message = "Full name must be between 2 and 100 characters")
             @Pattern(regexp = "^[a-zA-Z\\s'-]+$", message = "Name must contain letters only")
             String fullName,
 
-            @Pattern(regexp = "^(en|ha|yo|ig|pcm)$",
-                    message = "Language must be one of: en, ha, yo, ig, pcm")
+            @Schema(example = "en", description = "en · ha · yo · ig · pcm")
             String language,
 
             @Schema(example = "1", description = "Customer type ID from GET /v1/customer-types")
             Long customerTypeId,
 
-            @Schema(example = "Jos, Plateau State", description = "User location or market area")
+            @Schema(example = "Jos, Plateau State")
             String location,
 
-            @Schema(example = "HUB-JOS-01", description = "Preferred cold hub ID")
+            @Schema(example = "HUB-JOS-01")
             String preferredHubId,
 
-            @Schema(example = "accepted", description = "accepted or declined")
+            @Schema(example = "accepted", description = "accepted · declined")
             @Pattern(regexp = "^(accepted|declined)$",
                     message = "Consent must be: accepted or declined")
             String consentStatus,
@@ -80,98 +79,121 @@ public class OtpController extends BaseController {
                     description = "FARMER · MARKET_TRADER · COOPERATIVE · BUYER · PROCESSOR")
             String persona,
 
-            @Schema(example = "optional-org-id", description = "Organization ID if applicable")
+            @Schema(example = "optional-org-id")
             String organizationId,
 
             @Schema(example = "FEMALE",
                     description = "MALE · FEMALE · OTHER · PREFER_NOT_TO_SAY")
-                    String gender,
+            String gender,
 
             @Schema(example = "true",
-                    description = "true if user is under 35 — for DARES inclusion reporting")
+                    description = "true if user is under 35")
             Boolean youth
     ) {}
 
     public record OtpRequestBody(
-            @NotBlank
+            @NotBlank(message = "Phone number is required")
             @Pattern(regexp = "^\\+?[0-9]{7,15}$",
                     message = "Phone number must contain digits only, 7-15 characters")
             String phone,
             String purpose,
-            @Pattern(regexp = "^(en|ha|yo|ig|pcm)$",
-                    message = "Language must be one of: en, ha, yo, ig, pcm")
+            @Schema(example = "en", description = "en · ha · yo · ig · pcm")
             String preferredLanguage
     ) {}
 
     public record OtpVerifyBody(
-            @NotBlank
+            @NotBlank(message = "Phone number is required")
             @Pattern(regexp = "^\\+?[0-9]{7,15}$",
                     message = "Phone number must contain digits only")
             String phone,
-            @NotBlank
+            @NotBlank(message = "OTP code is required")
             @Pattern(regexp = "^[0-9]{4,6}$", message = "OTP must be numeric digits only")
             String code,
-            @Pattern(regexp = "^(en|ha|yo|ig|pcm)$",
-                    message = "Language must be one of: en, ha, yo, ig, pcm")
+            @Schema(example = "en", description = "en · ha · yo · ig · pcm")
             String preferredLanguage
     ) {}
+
+    public record RefreshRequest(
+            @NotBlank(message = "Refresh token is required")
+            String refreshToken
+    ) {}
+
+    private static final java.util.Set<String> VALID_LANGUAGES =
+            java.util.Set.of("en", "ha", "yo", "ig", "pcm");
+
+    private String resolveLanguage(String lang) {
+        if (lang == null || lang.isBlank()) return "en";
+        if (!VALID_LANGUAGES.contains(lang.toLowerCase())) {
+            throw new AppException.BadRequestException(
+                    "Invalid language. Must be one of: en · ha · yo · ig · pcm");
+        }
+        return lang.toLowerCase();
+    }
+
+    private String getIp(HttpServletRequest req) {
+        String forwarded = req.getHeader("X-Forwarded-For");
+        return (forwarded != null && !forwarded.isEmpty())
+                ? forwarded.split(",")[0].trim()
+                : req.getRemoteAddr();
+    }
 
     // ── Signup ────────────────────────────────────────────────────────────────
     @Operation(
             summary = "Customer signup — register account and send OTP",
             description = """
-        Creates account and sends OTP. All profile fields can be set here at signup.
-        
-        **Required:** phone, fullName
-        
-        **Optional:** language, customerTypeId, location, preferredHubId, consentStatus, persona, organizationId
-        """
+            Creates account and sends OTP.
+            **Required:** phone, fullName
+            **Optional:** language (defaults to en), customerTypeId, location,
+            preferredHubId, consentStatus, persona, organizationId, gender, youth
+            """
     )
     @PostMapping("/signup")
     public ResponseEntity<Map<String, String>> signup(
             @Valid @RequestBody SignupRequest req,
             HttpServletRequest http) {
         rateLimitService.checkAuthLimit(getIp(http));
-        String lang = req.language() != null ? req.language() : "en";
 
-        if (userRepository.existsByPhone(req.phone())) {
+        // Validate and resolve language
+        String lang = resolveLanguage(req.language());
+
+        // Trim and validate name
+        String cleanName = req.fullName() != null ? req.fullName().trim() : null;
+        if (cleanName == null || cleanName.isBlank()) {
+            throw new AppException.BadRequestException(
+                    "Full name cannot be empty or contain only spaces");
+        }
+
+        // Trim phone
+        String cleanPhone = req.phone() != null ? req.phone().trim() : null;
+        if (cleanPhone == null || !cleanPhone.matches("^\\+?[0-9]{7,15}$")) {
+            throw new AppException.BadRequestException(
+                    "Invalid phone number format. Must contain digits only, 7-15 characters");
+        }
+
+        if (userRepository.existsByPhone(cleanPhone)) {
             throw new AppException.ConflictException(
                     messages.get(AppMessages.Key.PHONE_ALREADY_REGISTERED, lang));
         }
 
         User user = new User();
-        user.setPhone(req.phone());
-        user.setFullName(req.fullName());
+        user.setPhone(cleanPhone);
+        user.setFullName(cleanName);
         user.setLanguage(lang);
         user.setRole(Role.CUSTOMER);
         user.setEnabled(true);
 
-        // Optional profile fields — set at signup if provided
-        if (req.customerTypeId() != null) {
-            user.setCustomerTypeId(req.customerTypeId());
-        }
-        if (req.location() != null && !req.location().isBlank()) {
-            user.setLocation(req.location());
-        }
-        if (req.preferredHubId() != null && !req.preferredHubId().isBlank()) {
-            user.setPreferredHubId(req.preferredHubId());
-        }
-        if (req.consentStatus() != null && !req.consentStatus().isBlank()) {
-            user.setConsentStatus(req.consentStatus());
-        }
-        if (req.persona() != null && !req.persona().isBlank()) {
-            user.setPersona(req.persona());
-        }
-        if (req.organizationId() != null && !req.organizationId().isBlank()) {
-            user.setOrganizationId(req.organizationId());
-        }
-
-        if (req.gender() != null) user.setGender(req.gender());
-        if (req.youth() != null)  user.setYouth(req.youth());
+        if (req.customerTypeId() != null)                          user.setCustomerTypeId(req.customerTypeId());
+        if (req.location() != null && !req.location().isBlank())   user.setLocation(req.location().trim());
+        if (req.preferredHubId() != null && !req.preferredHubId().isBlank()) user.setPreferredHubId(req.preferredHubId().trim());
+        if (req.consentStatus() != null && !req.consentStatus().isBlank())   user.setConsentStatus(req.consentStatus());
+        if (req.persona() != null && !req.persona().isBlank())     user.setPersona(req.persona());
+        if (req.organizationId() != null && !req.organizationId().isBlank()) user.setOrganizationId(req.organizationId().trim());
+        if (req.gender() != null)                                  user.setGender(req.gender());
+        if (req.youth() != null)                                   user.setYouth(req.youth());
 
         userRepository.save(user);
+        otpService.requestOtp(cleanPhone, "signup", lang);
 
-        otpService.requestOtp(req.phone(), "signup", lang);
         return ResponseEntity.ok(Map.of(
                 "message", messages.get(AppMessages.Key.SIGNUP_SUCCESS, lang),
                 "next",    "POST /v1/auth/otp/verify"
@@ -185,14 +207,21 @@ public class OtpController extends BaseController {
             @Valid @RequestBody OtpRequestBody req,
             HttpServletRequest http) {
         rateLimitService.checkAuthLimit(getIp(http));
-        String lang = req.preferredLanguage() != null ? req.preferredLanguage() : "en";
 
-        if (!userRepository.existsByPhone(req.phone())) {
+        String lang       = resolveLanguage(req.preferredLanguage());
+        String cleanPhone = req.phone() != null ? req.phone().trim() : null;
+
+        if (cleanPhone == null || !cleanPhone.matches("^\\+?[0-9]{7,15}$")) {
+            throw new AppException.BadRequestException(
+                    "Invalid phone number format. Must contain digits only, 7-15 characters");
+        }
+
+        if (!userRepository.existsByPhone(cleanPhone)) {
             throw new AppException.NotFoundException(
                     messages.get(AppMessages.Key.PHONE_NOT_REGISTERED, lang));
         }
 
-        otpService.requestOtp(req.phone(), "login", lang);
+        otpService.requestOtp(cleanPhone, "login", lang);
         return ResponseEntity.ok(Map.of(
                 "message", messages.get(AppMessages.Key.LOGIN_NEXT_STEP, lang),
                 "next",    "POST /v1/auth/otp/verify"
@@ -206,9 +235,16 @@ public class OtpController extends BaseController {
             @Valid @RequestBody OtpVerifyBody req,
             HttpServletRequest http) {
         rateLimitService.checkAuthLimit(getIp(http));
-        String lang = req.preferredLanguage() != null ? req.preferredLanguage() : "en";
 
-        User user = otpService.verifyOtp(req.phone(), req.code(), lang);
+        String lang       = resolveLanguage(req.preferredLanguage());
+        String cleanPhone = req.phone() != null ? req.phone().trim() : null;
+
+        if (cleanPhone == null || !cleanPhone.matches("^\\+?[0-9]{7,15}$")) {
+            throw new AppException.BadRequestException(
+                    "Invalid phone number format");
+        }
+
+        User user = otpService.verifyOtp(cleanPhone, req.code(), lang);
         return ResponseEntity.ok(Map.of(
                 "message",      messages.get(AppMessages.Key.OTP_VERIFIED, lang),
                 "accessToken",  jwtUtil.generateAccessToken(user),
@@ -228,8 +264,16 @@ public class OtpController extends BaseController {
             @Valid @RequestBody OtpRequestBody req,
             HttpServletRequest http) {
         rateLimitService.checkAuthLimit(getIp(http));
-        String lang = req.preferredLanguage() != null ? req.preferredLanguage() : "en";
-        String msg  = otpService.requestOtp(req.phone(), req.purpose(), lang);
+
+        String lang       = resolveLanguage(req.preferredLanguage());
+        String cleanPhone = req.phone() != null ? req.phone().trim() : null;
+
+        if (cleanPhone == null || !cleanPhone.matches("^\\+?[0-9]{7,15}$")) {
+            throw new AppException.BadRequestException(
+                    "Invalid phone number format");
+        }
+
+        String msg = otpService.requestOtp(cleanPhone, req.purpose(), lang);
         return ResponseEntity.ok(Map.of("message", msg));
     }
 
@@ -243,36 +287,34 @@ public class OtpController extends BaseController {
             @Valid @RequestBody OtpRequestBody req,
             HttpServletRequest http) {
         rateLimitService.checkAuthLimit(getIp(http));
-        String lang = req.preferredLanguage() != null ? req.preferredLanguage() : "en";
 
-        if (!userRepository.existsByPhone(req.phone())) {
+        String lang       = resolveLanguage(req.preferredLanguage());
+        String cleanPhone = req.phone() != null ? req.phone().trim() : null;
+
+        if (cleanPhone == null || !cleanPhone.matches("^\\+?[0-9]{7,15}$")) {
+            throw new AppException.BadRequestException(
+                    "Invalid phone number format");
+        }
+
+        if (!userRepository.existsByPhone(cleanPhone)) {
             throw new AppException.NotFoundException(
                     messages.get(AppMessages.Key.PHONE_NOT_REGISTERED, lang));
         }
 
-        otpService.requestOtp(req.phone(), "voice", lang);
-        smsService.sendOtpVoiceCall(req.phone(), "");
+        otpService.requestOtp(cleanPhone, "voice", lang);
+        smsService.sendOtpVoiceCall(cleanPhone, "");
 
         return ResponseEntity.ok(Map.of(
                 "message", messages.get(AppMessages.Key.VOICE_OTP_INITIATED, lang)
         ));
     }
 
-    private String getIp(HttpServletRequest req) {
-        String forwarded = req.getHeader("X-Forwarded-For");
-        return (forwarded != null && !forwarded.isEmpty())
-                ? forwarded.split(",")[0].trim()
-                : req.getRemoteAddr();
-    }
-
-    public record RefreshRequest(@NotBlank String refreshToken) {}
-
+    // ── Refresh Token ─────────────────────────────────────────────────────────
     @Operation(summary = "Refresh customer access token")
     @PostMapping("/refresh")
     public ResponseEntity<Map<String, Object>> refresh(
             @Valid @RequestBody RefreshRequest req,
             HttpServletRequest http) {
-
         rateLimitService.checkApiLimit(getIp(http));
 
         try {
@@ -282,12 +324,9 @@ public class OtpController extends BaseController {
                 throw new AppException.UnauthorizedException("Invalid refresh token");
             }
 
-            // Try phone first, then email
-            var userOpt = userRepository.findByPhone(username)
-                    .or(() -> userRepository.findByEmail(username));
-
-            var user = userOpt.orElseThrow(() ->
-                    new AppException.UnauthorizedException(
+            var user = userRepository.findByPhone(username)
+                    .or(() -> userRepository.findByEmail(username))
+                    .orElseThrow(() -> new AppException.UnauthorizedException(
                             "User not found for token"));
 
             if (!user.isEnabled()) {

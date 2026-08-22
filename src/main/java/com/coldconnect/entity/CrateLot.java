@@ -1,6 +1,7 @@
 package com.coldconnect.entity;
 
 import jakarta.persistence.*;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "crate_lots")
@@ -10,14 +11,17 @@ public class CrateLot {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private String crateId;
-    private String lotId;
-    private Long bookingId;
-    private Long ownerId;
-    private String commodityId;
-    private String grade;
-    private Double netWeightKg;
-    private Long zoneId;
+    private String        crateId;
+    private String        lotId;
+    private Long          bookingId;
+    private Long          ownerId;
+    private String        commodityId;
+    private String        grade;
+    private Double        netWeightKg;
+    private Long          zoneId;
+    private Long          hubId;
+    private Integer       freshnessDays;
+    private LocalDateTime intakeDate;
 
     @Enumerated(EnumType.STRING)
     private CrateStatus status;
@@ -44,6 +48,12 @@ public class CrateLot {
     public void setNetWeightKg(Double netWeightKg) { this.netWeightKg = netWeightKg; }
     public Long getZoneId() { return zoneId; }
     public void setZoneId(Long zoneId) { this.zoneId = zoneId; }
+    public Long getHubId() { return hubId; }
+    public void setHubId(Long hubId) { this.hubId = hubId; }
+    public Integer getFreshnessDays() { return freshnessDays; }
+    public void setFreshnessDays(Integer freshnessDays) { this.freshnessDays = freshnessDays; }
+    public LocalDateTime getIntakeDate() { return intakeDate; }
+    public void setIntakeDate(LocalDateTime intakeDate) { this.intakeDate = intakeDate; }
     public CrateStatus getStatus() { return status; }
     public void setStatus(CrateStatus status) { this.status = status; }
     public String getPhotos() { return photos; }

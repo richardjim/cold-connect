@@ -12,20 +12,25 @@ public class MarketLot {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private String lotId;
-    private String crateIds;
-    private Long sellerId;
-    private String commodityId;
-    private String grade;
-    private Double kgAvailable;
-    private BigDecimal pricePerKg;
-    private Double minOrderKg;
+    private String        lotId;
+    private String        crateIds;
+    private Long          sellerId;
+    private String        sellerName;
+    private String        commodityId;
+    private String        commodityName;
+    private String        grade;
+    private Double        kgAvailable;
+    private BigDecimal    pricePerKg;
+    private Double        minOrderKg;
+    private Long          hubId;
+    private String        hubName;
+    private Integer       freshnessDays;
 
     @Enumerated(EnumType.STRING)
     private LotStatus status;
 
     private LocalDateTime listedAt;
-    private Integer traceabilityScore;
+    private Integer       traceabilityScore;
 
     @PrePersist
     protected void onCreate() { listedAt = LocalDateTime.now(); }
@@ -40,8 +45,12 @@ public class MarketLot {
     public void setCrateIds(String crateIds) { this.crateIds = crateIds; }
     public Long getSellerId() { return sellerId; }
     public void setSellerId(Long sellerId) { this.sellerId = sellerId; }
+    public String getSellerName() { return sellerName; }
+    public void setSellerName(String sellerName) { this.sellerName = sellerName; }
     public String getCommodityId() { return commodityId; }
     public void setCommodityId(String commodityId) { this.commodityId = commodityId; }
+    public String getCommodityName() { return commodityName; }
+    public void setCommodityName(String commodityName) { this.commodityName = commodityName; }
     public String getGrade() { return grade; }
     public void setGrade(String grade) { this.grade = grade; }
     public Double getKgAvailable() { return kgAvailable; }
@@ -50,6 +59,12 @@ public class MarketLot {
     public void setPricePerKg(BigDecimal pricePerKg) { this.pricePerKg = pricePerKg; }
     public Double getMinOrderKg() { return minOrderKg; }
     public void setMinOrderKg(Double minOrderKg) { this.minOrderKg = minOrderKg; }
+    public Long getHubId() { return hubId; }
+    public void setHubId(Long hubId) { this.hubId = hubId; }
+    public String getHubName() { return hubName; }
+    public void setHubName(String hubName) { this.hubName = hubName; }
+    public Integer getFreshnessDays() { return freshnessDays; }
+    public void setFreshnessDays(Integer freshnessDays) { this.freshnessDays = freshnessDays; }
     public LotStatus getStatus() { return status; }
     public void setStatus(LotStatus status) { this.status = status; }
     public LocalDateTime getListedAt() { return listedAt; }
