@@ -99,14 +99,16 @@ public class OtpService {
         // Master test OTP — remove when Termii is wired
         boolean isMasterCode = "1234".equals(code);
 
+        // In verifyOtp — add attempt counter
         if (!isMasterCode) {
-            // Check OTP exists
             if (user.getOtpCode() == null) {
-                throw new AppException.BadRequestException(
-                        "No active OTP found. Please request a new one.");
+                throw new AppException.BadRequestException("No active OTP. Request a new one.");
             }
-            // Check OTP matches
             if (!user.getOtpCode().equals(code)) {
+                // Invalidate OTP after wrong attempt
+                user.setOtpCode(null);
+                user.setOtpExpiry(null);
+                userRepository.save(user);
                 throw new AppException.BadRequestException(
                         messages.get(AppMessages.Key.OTP_INVALID, language));
             }

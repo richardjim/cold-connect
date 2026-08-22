@@ -95,6 +95,10 @@ public class WalletLedgerService {
                     "Withdrawal amount must be greater than zero");
         }
 
+        if (amount.scale() > 2) {
+            amount = amount.setScale(2, java.math.RoundingMode.HALF_UP);
+        }
+
         Wallet wallet = getOrCreateWallet(userId);
 
         if (wallet.getBalance().compareTo(amount) < 0) {

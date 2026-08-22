@@ -1,7 +1,10 @@
 package com.coldconnect.controller;
 
+import com.coldconnect.entity.Receipt;
 import com.coldconnect.entity.WalletTransaction;
+import com.coldconnect.exception.AppException;
 import com.coldconnect.i18n.AppMessages;
+import com.coldconnect.repository.ReceiptRepository;
 import com.coldconnect.repository.UserRepository;
 import com.coldconnect.service.WalletLedgerService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -26,13 +29,16 @@ import java.util.Map;
 public class WalletLedgerController extends BaseController {
 
     private final WalletLedgerService walletLedgerService;
+    private final ReceiptRepository   receiptRepository;
     private final AppMessages         messages;
 
     public WalletLedgerController(UserRepository userRepository,
                                   WalletLedgerService walletLedgerService,
+                                  ReceiptRepository receiptRepository,
                                   AppMessages messages) {
         super(userRepository);
         this.walletLedgerService = walletLedgerService;
+        this.receiptRepository   = receiptRepository;
         this.messages            = messages;
     }
 
@@ -54,7 +60,7 @@ public class WalletLedgerController extends BaseController {
         return ResponseEntity.ok(walletLedgerService.getWalletDetail(userId));
     }
 
-    @Operation(summary = "Top up wallet — methods: BANK_TRANSFER, CARD, CASH")
+    @Operation(summary = "Top up wallet — methods: BANK_TRANSFER · CARD · CASH")
     @PostMapping("/topup")
     public ResponseEntity<Map<String, Object>> topUp(
             @AuthenticationPrincipal UserDetails userDetails,
@@ -81,6 +87,30 @@ public class WalletLedgerController extends BaseController {
         return ResponseEntity.ok(Map.of(
                 "message",     messages.get(AppMessages.Key.WALLET_WITHDRAW_SUCCESS, lang),
                 "transaction", tx
+        ));
+    }
+
+    @Operation(summary = "Get receipt as downloadable data")
+    @GetMapping("/receipts/{receiptId}/download")
+    public ResponseEntity<Map<String, Object>> downloadReceipt(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long receiptId) {
+        Long userId = resolveUser(userDetails).getId();
+        Receipt receipt = receiptRepository.findById(receiptId)
+                .orElseThrow(() -> new AppException.NotFoundException(
+                        "Receipt not found: " + receiptId));
+        if (!receipt.getIssuedTo().equals(userId)) {
+            throw new AppException.UnauthorizedException("Not your receipt");
+        }
+        return ResponseEntity.ok(Map.of(
+                "receiptId",  receipt.getId(),
+                "amount",     receipt.getAmount(),
+                "issuedAt",   receipt.getIssuedAt(),
+                "bookingId",  receipt.getBookingId(),
+                "receiptUri", receipt.getReceiptUri(),
+                "shareText",  "Cold Connect Receipt #" + receipt.getId()
+                        + " — ₦" + receipt.getAmount()
+                        + " paid on " + receipt.getIssuedAt()
         ));
     }
 }

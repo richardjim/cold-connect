@@ -48,24 +48,25 @@ public class OtpController extends BaseController {
     }
 
     public record SignupRequest(
-            @NotBlank
+            @NotBlank(message = "Phone number is required")
             @Pattern(regexp = "^\\+?[0-9]{7,15}$",
                     message = "Phone number must contain digits only, 7-15 characters")
             String phone,
 
-            @NotBlank
+            @NotBlank(message = "Full name is required")
             @Size(min = 2, max = 100, message = "Full name must be between 2 and 100 characters")
             @Pattern(regexp = "^[a-zA-Z\\s'-]+$", message = "Name must contain letters only")
             String fullName,
 
             @Pattern(regexp = "^(en|ha|yo|ig|pcm)$",
                     message = "Language must be one of: en, ha, yo, ig, pcm")
+            @Schema(example = "en", defaultValue = "en")
             String language,
 
             @Schema(example = "1", description = "Customer type ID from GET /v1/customer-types")
             Long customerTypeId,
 
-            @Schema(example = "Jos, Plateau State", description = "User location or market area")
+            @NotBlank(message = "Location is required")
             String location,
 
             @Schema(example = "HUB-JOS-01", description = "Preferred cold hub ID")
@@ -132,7 +133,7 @@ public class OtpController extends BaseController {
             @Valid @RequestBody SignupRequest req,
             HttpServletRequest http) {
         rateLimitService.checkAuthLimit(getIp(http));
-        String lang = req.language() != null ? req.language() : "en";
+        String lang = (req.language() != null && !req.language().isBlank()) ? req.language() : "en";
 
         if (userRepository.existsByPhone(req.phone())) {
             throw new AppException.ConflictException(

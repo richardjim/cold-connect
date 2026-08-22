@@ -115,6 +115,11 @@ public class BookingService {
                     "Window end must be after window start");
         }
 
+        if (crateCount != null && crateCount > 500) {
+            throw new AppException.BadRequestException(
+                    "Crate count cannot exceed 500 per booking. Contact admin for bulk orders.");
+        }
+
         // ── DB validation ─────────────────────────────────────────────────────
         var hub = hubRepository.findById(hubId)
                 .orElseThrow(() -> new AppException.NotFoundException(
@@ -122,7 +127,9 @@ public class BookingService {
 
         if (hub.getStatus() != com.coldconnect.entity.Hub.HubStatus.ACTIVE) {
             throw new AppException.BadRequestException(
-                    "Hub is not currently accepting bookings. Status: " + hub.getStatus());
+                    hub.getStatus() == com.coldconnect.entity.Hub.HubStatus.FULL
+                            ? "Hub is full. Please join the waitlist via POST /v1/hubs/" + hubId + "/waitlist"
+                            : "Hub is not currently accepting bookings. Status: " + hub.getStatus());
         }
 
         double available = hub.getCapacityKg() - hub.getCurrentLoadKg();
@@ -211,10 +218,12 @@ public class BookingService {
         return booking;
     }
 
-    @Transactional
-    public Booking confirmBooking(String bookingId, String language) {
+    public Booking confirmBooking(String bookingId, Long userId, String language) {
         Booking booking = getBooking(bookingId, language);
 
+        if (!booking.getCustomerId().equals(userId)) {
+            throw new AppException.UnauthorizedException("Not your booking");
+        }
         if (booking.getStatus() == Booking.BookingStatus.CANCELLED) {
             throw new AppException.BadRequestException("Cannot confirm a cancelled booking");
         }

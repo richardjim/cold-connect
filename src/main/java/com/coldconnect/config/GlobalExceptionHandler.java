@@ -104,4 +104,13 @@ public class GlobalExceptionHandler {
                 "status", 500, "error", "Internal Server Error",
                 "message", "An unexpected error occurred"));
     }
+
+    @ExceptionHandler(org.springframework.web.client.ResourceAccessException.class)
+    public ResponseEntity<Map<String, Object>> handleNetworkError(Exception ex) {
+        return ResponseEntity.status(503).body(Map.of(
+                "status",  503,
+                "error",   "Service Unavailable",
+                "message", "No internet connection. Please check your network and try again."
+        ));
+    }
 }
