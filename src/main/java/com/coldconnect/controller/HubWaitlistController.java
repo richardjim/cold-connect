@@ -17,7 +17,6 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -52,10 +51,11 @@ public class HubWaitlistController extends BaseController {
             @AuthenticationPrincipal UserDetails userDetails,
             @PathVariable Long hubId,
             @Valid @RequestBody WaitlistRequest req) {
+
         String lang   = resolveLanguage(userDetails);
         Long   userId = resolveUser(userDetails).getId();
 
-        // Validate hub exists
+        // Validate hub exists — fixes #479 #480
         hubRepository.findById(hubId)
                 .orElseThrow(() -> new AppException.NotFoundException(
                         "Hub not found: " + hubId));
@@ -71,12 +71,13 @@ public class HubWaitlistController extends BaseController {
 
     @Operation(
             summary = "Get my waitlist status for a hub",
-            description = "Returns onWaitlist=false if user is not on waitlist. Returns 404 if hub does not exist."
+            description = "Returns onWaitlist=false if user is not on the waitlist. Returns 404 if hub does not exist."
     )
     @GetMapping("/{hubId}/waitlist")
     public ResponseEntity<Map<String, Object>> getWaitlistStatus(
             @AuthenticationPrincipal UserDetails userDetails,
             @PathVariable Long hubId) {
+
         Long userId = resolveUser(userDetails).getId();
 
         // Validate hub exists — fixes #493
@@ -84,26 +85,32 @@ public class HubWaitlistController extends BaseController {
                 .orElseThrow(() -> new AppException.NotFoundException(
                         "Hub not found: " + hubId));
 
-        var   entry = waitlistService.getWaitlistStatus(userId, hubId);
-        int   count = waitlistService.getWaitlistCount(hubId);
+        // Null-safe entry lookup — fixes #492
+        var entryOpt = waitlistService.getWaitlistStatus(userId, hubId);
+        int count    = waitlistService.getWaitlistCount(hubId);
 
-        Map<String, Object> response = new HashMap<>();
-        response.put("onWaitlist",   entry.isPresent());
-        response.put("hubId",        hubId);
-        response.put("totalWaiting", count);
-
-        if (entry.isPresent()) {
-            // Fixes #492 — user not on waitlist was causing NPE with Map.of(null)
-            response.put("entry", entry.get());
+        if (entryOpt.isEmpty()) {
+            return ResponseEntity.ok(Map.of(
+                    "onWaitlist",   false,
+                    "hubId",        hubId,
+                    "totalWaiting", count,
+                    "message",      "You are not on the waitlist for this hub"
+            ));
         }
 
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(Map.of(
+                "onWaitlist",   true,
+                "hubId",        hubId,
+                "totalWaiting", count,
+                "entry",        entryOpt.get()
+        ));
     }
 
     @Operation(summary = "Get all my waitlist entries")
     @GetMapping("/waitlist/mine")
     public ResponseEntity<List<HubWaitlist>> getMyWaitlists(
             @AuthenticationPrincipal UserDetails userDetails) {
+        // Requires auth — fixed by SecurityConfig removing /v1/hubs/** from PUBLIC_PATHS
         Long userId = resolveUser(userDetails).getId();
         return ResponseEntity.ok(waitlistService.getMyWaitlists(userId));
     }
@@ -113,8 +120,10 @@ public class HubWaitlistController extends BaseController {
     public ResponseEntity<Map<String, Object>> cancelWaitlist(
             @AuthenticationPrincipal UserDetails userDetails,
             @PathVariable Long waitlistId) {
+
         String lang   = resolveLanguage(userDetails);
         Long   userId = resolveUser(userDetails).getId();
+
         HubWaitlist entry = waitlistService.cancelWaitlist(userId, waitlistId, lang);
         return ResponseEntity.ok(Map.of(
                 "message", messages.get(AppMessages.Key.WAITLIST_CANCELLED, lang),

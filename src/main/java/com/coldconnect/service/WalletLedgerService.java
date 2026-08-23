@@ -10,11 +10,16 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
 public class WalletLedgerService {
+
+    private static final Set<String> VALID_METHODS =
+            Set.of("BANK_TRANSFER", "CARD", "CASH");
 
     private final WalletRepository            walletRepository;
     private final WalletTransactionRepository transactionRepository;
@@ -62,14 +67,29 @@ public class WalletLedgerService {
     @Transactional
     public WalletTransaction topUp(Long userId, BigDecimal amount,
                                    String method, String language) {
+        // Validate amount
+        if (amount == null) {
+            throw new AppException.BadRequestException("Amount is required");
+        }
         if (amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new AppException.BadRequestException(
                     "Top-up amount must be greater than zero");
         }
 
-        Wallet wallet       = getOrCreateWallet(userId);
-        BigDecimal before   = wallet.getBalance();
-        BigDecimal after    = before.add(amount);
+        // Validate method — fixes #206
+        if (method == null || method.isBlank()) {
+            throw new AppException.BadRequestException(
+                    "Payment method is required. Must be: BANK_TRANSFER · CARD · CASH");
+        }
+        if (!VALID_METHODS.contains(method.toUpperCase())) {
+            throw new AppException.BadRequestException(
+                    "Invalid payment method '" + method
+                            + "'. Must be: BANK_TRANSFER · CARD · CASH");
+        }
+
+        Wallet     wallet = getOrCreateWallet(userId);
+        BigDecimal before = wallet.getBalance();
+        BigDecimal after  = before.add(amount.setScale(2, RoundingMode.HALF_UP));
 
         wallet.setBalance(after);
         walletRepository.save(wallet);
@@ -77,10 +97,10 @@ public class WalletLedgerService {
         WalletTransaction tx = new WalletTransaction();
         tx.setUserId(userId);
         tx.setType("TOPUP");
-        tx.setAmount(amount);
+        tx.setAmount(amount.setScale(2, RoundingMode.HALF_UP));
         tx.setBalanceBefore(before);
         tx.setBalanceAfter(after);
-        tx.setMethod(method);
+        tx.setMethod(method.toUpperCase());
         tx.setReference("TOPUP-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase());
         tx.setStatus("COMPLETED");
         tx.setDescription(messages.get(AppMessages.Key.WALLET_TOPUP_SUCCESS, language));
@@ -90,14 +110,28 @@ public class WalletLedgerService {
     @Transactional
     public WalletTransaction withdraw(Long userId, BigDecimal amount,
                                       String method, String language) {
+        // Validate amount
+        if (amount == null) {
+            throw new AppException.BadRequestException("Amount is required");
+        }
         if (amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new AppException.BadRequestException(
                     "Withdrawal amount must be greater than zero");
         }
 
-        if (amount.scale() > 2) {
-            amount = amount.setScale(2, java.math.RoundingMode.HALF_UP);
+        // Validate method — fixes #221
+        if (method == null || method.isBlank()) {
+            throw new AppException.BadRequestException(
+                    "Payment method is required. Must be: BANK_TRANSFER · CARD · CASH");
         }
+        if (!VALID_METHODS.contains(method.toUpperCase())) {
+            throw new AppException.BadRequestException(
+                    "Invalid payment method '" + method
+                            + "'. Must be: BANK_TRANSFER · CARD · CASH");
+        }
+
+        // Normalize scale — fixes #218 (.20000000 records as 0)
+        amount = amount.setScale(2, RoundingMode.HALF_UP);
 
         Wallet wallet = getOrCreateWallet(userId);
 
@@ -119,7 +153,7 @@ public class WalletLedgerService {
         tx.setAmount(amount);
         tx.setBalanceBefore(before);
         tx.setBalanceAfter(after);
-        tx.setMethod(method);
+        tx.setMethod(method.toUpperCase());
         tx.setReference("WDR-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase());
         tx.setStatus("COMPLETED");
         tx.setDescription(messages.get(AppMessages.Key.WALLET_WITHDRAW_SUCCESS, language));
@@ -129,6 +163,11 @@ public class WalletLedgerService {
     @Transactional
     public WalletTransaction debit(Long userId, BigDecimal amount,
                                    String description, String language) {
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new AppException.BadRequestException(
+                    "Debit amount must be greater than zero");
+        }
+
         Wallet wallet = getOrCreateWallet(userId);
 
         if (wallet.getBalance().compareTo(amount) < 0) {

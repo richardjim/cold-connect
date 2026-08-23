@@ -18,12 +18,19 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/v1/support")
 @SecurityRequirement(name = "bearerAuth")
 @Tag(name = "Support", description = "Raise and track support cases")
 public class SupportController extends BaseController {
+
+    private static final Set<String> VALID_TYPES = Set.of(
+            "DISPUTE", "MISSING_CRATE", "FEE_ISSUE", "TEMP_CONCERN", "DRIVER_INCIDENT");
+
+    private static final Set<String> VALID_SEVERITIES = Set.of(
+            "CRITICAL", "HIGH", "MEDIUM", "LOW");
 
     private final SupportCaseRepository caseRepository;
     private final AppMessages           messages;
@@ -58,7 +65,7 @@ public class SupportController extends BaseController {
             @NotBlank String message,
 
             @Schema(example = "https://storage.example.com/photo.jpg",
-                    description = "Optional photo URL — upload photo first then pass URL here")
+                    description = "Optional photo URL")
             String photoUri
     ) {}
 
@@ -66,8 +73,7 @@ public class SupportController extends BaseController {
             summary = "Raise a support case",
             description = """
             Types: DISPUTE · MISSING_CRATE · FEE_ISSUE · TEMP_CONCERN · DRIVER_INCIDENT
-            SLA is auto-set based on severity:
-            CRITICAL=2h · HIGH=4h · MEDIUM=24h · LOW=72h
+            SLA: CRITICAL=2h · HIGH=4h · MEDIUM=24h · LOW=72h
             """
     )
     @PostMapping("/cases")
@@ -78,10 +84,30 @@ public class SupportController extends BaseController {
         String lang   = resolveLanguage(userDetails);
         Long   userId = resolveUser(userDetails).getId();
 
+        // Validate type — fixes #438
+        if (!VALID_TYPES.contains(req.type().toUpperCase())) {
+            throw new AppException.BadRequestException(
+                    "Invalid type. Must be: DISPUTE · MISSING_CRATE · FEE_ISSUE · TEMP_CONCERN · DRIVER_INCIDENT");
+        }
+
+        // Validate severity — fixes #440
+        String severity = req.severity() != null
+                ? req.severity().toUpperCase() : "MEDIUM";
+        if (!VALID_SEVERITIES.contains(severity)) {
+            throw new AppException.BadRequestException(
+                    "Invalid severity. Must be: CRITICAL · HIGH · MEDIUM · LOW");
+        }
+
+        // Validate message length — fixes #448
+        if (req.message() != null && req.message().length() > 2000) {
+            throw new AppException.BadRequestException(
+                    "Message cannot exceed 2000 characters");
+        }
+
         SupportCase c = new SupportCase();
         c.setRequesterId(userId);
         c.setType(req.type().toUpperCase());
-        c.setSeverity(req.severity() != null ? req.severity().toUpperCase() : "MEDIUM");
+        c.setSeverity(severity);
         c.setBookingId(req.bookingId());
         c.setCrateId(req.crateId());
         c.setTripId(req.tripId());
