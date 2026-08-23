@@ -115,10 +115,6 @@ public class GlobalExceptionHandler {
         ));
     }
 
-    // Fixes #107 #108 #184 #185 #186 #191 #192 #379 #397 #398 #402
-    // #466 #467 #468 #479 #480 #488 #494 #495 #514
-    // Spring throws this when a path variable or request param can't be
-    // converted to the expected type (e.g. "abc" for a Long hubId)
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<Map<String, Object>> handleTypeMismatch(
             MethodArgumentTypeMismatchException ex) {
