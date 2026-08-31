@@ -56,7 +56,6 @@ public class SecurityConfig {
             "/api/auth/refresh",
             "/api/auth/resend-verification",
             "/v1/hubs",
-            "/v1/hubs/**",
             "/v1/regions/**",
             "/v1/commodities/**",
             "/v1/leads/**",
